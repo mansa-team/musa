@@ -5,9 +5,11 @@ import seaborn as sns
 
 from datetime import datetime
 
+from scipy import stats
 from scipy.signal import detrend
 from scipy.stats import spearmanr
-from statsmodels.regression.mixed_linear_model import MixedLM
+
+import statsmodels.formula.api as smf
 
 import requests
 
@@ -65,31 +67,21 @@ regression_df = pd.DataFrame({
     'time_idx': np.tile(np.arange(T_years), N_stocks)
 })
 
-result = MixedLM.from_formula(
+result = smf.ols(
     'detrended_value ~ M + S',
-    groups='tickers',
-    re_formula='~M',
     data=regression_df
-).fit(reml=True, method='lbfgs')
+).fit()
 
 # epsilon extraction
-fixed_params = result.fe_params
-alpha = fixed_params['Intercept']
-beta_m_fixed = fixed_params['M']
-beta_s_fixed = fixed_params['S']
-
-random_effects = result.random_effects
+alpha = result.params['Intercept']
+beta_m_fixed = result.params['M']
+beta_s_fixed = result.params['S']
 
 epsilon = np.zeros_like(selected_detrended)
-betas_m = np.zeros(N_stocks)
-
 for i, ticker in enumerate(selected_tickers):
-    re = random_effects[ticker]
-    beta_m_i = beta_m_fixed + re['M']
-    alpha_i = alpha + re['tickers']
-    
-    epsilon[i] = selected_detrended[i] - (alpha_i + beta_m_i * M + beta_s_fixed * selic_standardized.flatten())
-    betas_m[i] = beta_m_i
+    epsilon[i] = selected_detrended[i] - (alpha + beta_m_fixed * M + beta_s_fixed * selic_standardized.flatten())
+
+betas_m = np.full(N_stocks, beta_m_fixed) 
 
 # spearman correlation
 corr, pval = spearmanr(epsilon.T)
@@ -106,7 +98,6 @@ plt.tight_layout()
 plt.savefig("epsilon_correlation.png", dpi=150)
 plt.close()
 
-# use log profits for the corr drop
 
 """
 to be used to compose the views of the black-litterman together with the xango investing scores
@@ -205,4 +196,8 @@ patch 2:
 use np.log in the profits vector before using the detrend, to properly evaluate the exponential behavior of profits in a strategy, that, when using a detrend model, would remove the part in which the stock grows the most, tanking most scores.
 
 used the market factor as the factor between all stocks instead of the subset, because the subset was too small, causing the linear regression to not converge
+
+
+patch 3:
+
 """
