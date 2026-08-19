@@ -31,3 +31,7 @@ https://huggingface.co/datasets/ab30atsiwo/finbert-gpt
 https://huggingface.co/datasets/FinGPT/fingpt-sentiment-train
 https://huggingface.co/datasets/TimKoornstra/financial-tweets-sentiment
 https://huggingface.co/datasets/KalsusEvening/financial-news-headlines
+
+
+
+https://arxiv.org/abs/2605.00086
