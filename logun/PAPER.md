@@ -51,7 +51,7 @@ The data corpus for this fine tuning approach consists of a data from a range of
 They were selected to cover a range of different approaches on news, which makes the model a better generalist. Since these data is in English, the researcher proposed the usage of LLMs like Qwen 3.5 4B with breakthrough Speculative Decoding technologies like DFlash, with a special version made by inco.ai, called DFlash 2 for mass translation of the labels in a specialized scripts tailored for checkpoints and concurrency on the translation process of the datasets, that are going to be further merged within a data preparation for a final submit for the LoRa pipeline. The LLM setup uses a small context window 4096 tokens to optimize the VRAM headroom for the Speculative Decoding application, it also uses a 4bit quantization to reduce the VRAM footprint further, allowing for high performance throughput in translation tasks.
 The scripts will also contain specialized configs for the LLMs for low hallucination profiles with tight temperatures and top-k configs, with a strong and structure system prompt to prevent deviations in outputs. They will also be evaluated using COMET (Unbabel/wmt22-cometkiwi-da at int8) for quality gating
 
-(include benchmarks on tk/s generation and vram usage on different scenarios)
+(include benchmarks on tk/s generation and vram usage on different scenarios for qwen with different dflash configs)
 
 As per the results, they are compared in a benchamrk to compare the results in accuracy and latency, it considers the usage of 3 datasets as benchmarks:
     https://www.kaggle.com/datasets/mateuspicanco/financial-phrase-bank-portuguese-translation
