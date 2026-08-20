@@ -1,4 +1,4 @@
 .env
 *.json
 
-logun/dataset/*
+logun/dataset/data/*

@@ -1,0 +1,17 @@
+scraper:
+  years: "all"           # "all" for 2003..current, or [2020, 2021, 2022]
+  delay: 1.0
+  max_docs: 0            # 0 = unlimited
+  dry_run: false
+
+dapt:
+  chunk_size: 1800
+  overlap: 200
+  min_length: 200
+  max_length: 8000
+  dry_run: false
+
+paths:
+  data_dir: "./data"
+  output_dir: "./data/output"
+  corpus: "./data/corpus.txt"
