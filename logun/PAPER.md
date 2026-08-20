@@ -1,4 +1,4 @@
-# Logun: Efficient Portuguese Financial Sentiment Analysis via Domain-Adapted ModernBERT Encoders
+# Logun: Efficient Domain Adaptation and Parameter-Efficient Fine-Tuning for Portuguese Financial Language Understanding
 
 Logun is an approach focusing on the development of finetuning methodologies for Financial Sentiment Analysis in Portuguese based on a pretrained encoding model.
 For this approach, the chosen baseline model by the researcher to start is NorBERTo, based on the ModernBERT architecture and trained on 331 billion tokens composed by a different span of datasets, including the AuroraPT dataset by Instituto de Ciência e Tecnologia Itaú, its currently the most efficient and best Portuguese inclined encoding model avaliable according to benchmarks and it allows for the tuning of 2 different Logun models, a Base (150M parameters) and a Large (395M parameters) version, both focused on different efficiency profiles, which could be helpful depending on the task in which each model is deployed, either through non concurrent classification tasks (eg. via an API) or via mass concurrent classification tasks (eg. a scraper running on different news).
@@ -75,6 +75,13 @@ https://arxiv.org/abs/2506.06335
 https://arxiv.org/abs/2602.06036
 https://inco.ai/blog/dflash2/
 
+https://arxiv.org/pdf/2606.22722 (possible alternative for the non cc NorBERTo)
+
 todo:
 - [ ] include the cvm scraper specs
 - [ ] evaluate the usage of more efficient approaches for DAPT
+- [ ] replace "we are going to use x" to "Hypothesis -> Experiment -> Measurement -> Expected interpretation"
+
+specs:
+1660super 6gb 192gb/s
+4x8gb 25gb/s
