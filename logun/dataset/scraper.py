@@ -57,7 +57,7 @@ def download_csv(year):
 def load_csv(csv_path):
     for encoding in ("utf-8", "latin-1", "cp1252"):
         try:
-            dataframe = pd.read_csv(csv_path, dtype=str, encoding=encoding, sep=";")
+            dataframe = pd.read_csv(csv_path, dtype=str, encoding=encoding, sep=";", keep_default_na=False)
             if len(dataframe.columns) < 2:
                 continue
             return dataframe
