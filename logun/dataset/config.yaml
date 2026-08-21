@@ -1,3 +1,4 @@
+# scraper -> cvm, dapt -> processing, paths -> output
 scraper:
   years: "all"
   delay: 1.0
@@ -29,3 +30,7 @@ audit:
   shingle: 3
   output: "audit_report.json"
   limit_bench: 0
+
+logging:
+  level: "INFO"
+  file: "logs/logun.log"

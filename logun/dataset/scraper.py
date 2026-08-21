@@ -14,6 +14,22 @@ from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
+
+def setup_logging(cfg):
+    logging_cfg = cfg.get("logging", {})
+    level_name = logging_cfg.get("level", "INFO")
+    level = getattr(logging, str(level_name).upper(), logging.INFO)
+    log_file = logging_cfg.get("file")
+    if log_file:
+        log_path = Path(log_file)
+        if not log_path.is_absolute():
+            log_path = Path(__file__).parent / log_path
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        logging.basicConfig(level=level, filename=str(log_path))
+    else:
+        logging.basicConfig(level=level)
+
+
 CONFIG_PATH = Path(__file__).parent / "config.yaml"
 config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
 scraper = config["scraper"]
