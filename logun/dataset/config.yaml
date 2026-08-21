@@ -1,18 +1,31 @@
 scraper:
-  years: "all"           # "all" for 2003..current, or [2020, 2021, 2022]
+  years: "all"
   delay: 1.0
   max_workers: 8
-  max_docs: 0            # 0 = unlimited
+  max_docs: 0
   dry_run: false
 
 dapt:
-  chunk_size: 1800
+  chunk_size: 4096
   overlap: 200
-  min_length: 200
+  min_length: 400
   max_length: 8000
   dry_run: false
+  tokenizer: "answerdotai/ModernBERT-base"
+  language_threshold: 0.05
+  dedup_mode: "exact_doc"
+  train_split: 0.95
+  seed: 42
 
 paths:
   data_dir: "./data"
   output_dir: "./data/output"
   corpus: "./data/corpus.txt"
+
+audit:
+  corpus: "./data/output"
+  benchmark: null
+  threshold: 0.85
+  shingle: 3
+  output: "audit_report.json"
+  limit_bench: 0

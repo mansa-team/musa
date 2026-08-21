@@ -1,11 +1,18 @@
-import json, time, zipfile, io, threading
-from pathlib import Path
+import io
+import json
+import logging
+import threading
+import time
+import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import yaml
+from pathlib import Path
 import pandas as pd
-import pymupdf, requests
+import pymupdf
+import requests
+import yaml
 from tqdm import tqdm
-pymupdf.__del__
+
+logger = logging.getLogger(__name__)
 
 CONFIG_PATH = Path(__file__).parent / "config.yaml"
 config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
@@ -16,23 +23,53 @@ BASE_URL = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/IPE/DADOS/"
 DATA_DIR = Path(__file__).parent / paths["data_dir"]
 SCRAPABLE_YEARS = list(range(2003, 2027))
 KEEP_CATEGORIES = {
-    "fato relevante", "comunicado ao mercado", "aviso aos acionistas",
-    "carta anual de governança corporativa", "código de conduta", "estatuto social",
-    "política de remuneração", "política de divulgação de ato ou fato relevante",
-    "política de gerenciamento de riscos", "política de negociação de valores mobiliários",
-    "política de transações entre partes relacionadas", "política de destinação de resultados",
-    "política de dividendos", "política de negociação das ações da companhia",
-    "política de sustentabilidade", "política para contratação de serviços extra-auditoria de seus auditores independentes",
-    "política sobre contribuições e doações", "plano de remuneração baseado em ações",
+    "fato relevante",
+    "comunicado ao mercado",
+    "aviso aos acionistas",
+    "carta anual de governança corporativa",
+    "código de conduta",
+    "estatuto social",
+    "política de remuneração",
+    "política de divulgação de ato ou fato relevante",
+    "política de gerenciamento de riscos",
+    "política de negociação de valores mobiliários",
+    "política de transações entre partes relacionadas",
+    "política de destinação de resultados",
+    "política de dividendos",
+    "política de negociação das ações da companhia",
+    "política de sustentabilidade",
+    "política para contratação de serviços extra-auditoria de seus auditores independentes",
+    "política sobre contribuições e doações",
+    "plano de remuneração baseado em ações",
     "plano de remuneração baseado em ações (exceto plano de opções)",
-    "regimento interno da diretoria", "regimento interno de comitês",
-    "regimento interno do comitê de auditoria estatutário", "regimento interno do conselho fiscal",
-    "regimento interno do conselho de administração", "relato integrado",
-    "relatório de sustentabilidade", "dados econômico-financeiros",
-    "contratos de identidade", "acordo de acionistas",
+    "regimento interno da diretoria",
+    "regimento interno de comitês",
+    "regimento interno do comitê de auditoria estatutário",
+    "regimento interno do conselho fiscal",
+    "regimento interno do conselho de administração",
+    "relato integrado",
+    "relatório de sustentabilidade",
+    "dados econômico-financeiros",
+    "contratos de identidade",
+    "acordo de acionistas",
     "comunicação sobre transação entre partes relacionadas",
     "informações de companhias em recuperação judicial ou extrajudicial",
 }
+
+rate_lock = threading.Lock()
+last_request_ts = [0.0]
+
+
+def global_rate_limit():
+    delay = scraper.get("delay", 0) or 0
+    if delay <= 0:
+        return
+    with rate_lock:
+        now = time.monotonic()
+        wait = last_request_ts[0] + delay - now
+        if wait > 0:
+            time.sleep(wait)
+        last_request_ts[0] = time.monotonic()
 
 
 def resolve_years(years):
@@ -59,7 +96,9 @@ def download_csv(year):
 def load_csv(csv_path):
     for encoding in ("utf-8", "latin-1", "cp1252"):
         try:
-            dataframe = pd.read_csv(csv_path, dtype=str, encoding=encoding, sep=";", keep_default_na=False)
+            dataframe = pd.read_csv(
+                csv_path, dtype=str, encoding=encoding, sep=";", keep_default_na=False
+            )
             if len(dataframe.columns) < 2:
                 continue
             return dataframe
@@ -70,12 +109,45 @@ def load_csv(csv_path):
 
 def extract_text(pdf_bytes):
     try:
-        document = pymupdf.open(stream=pdf_bytes, filetype="pdf")
-        text = "\n\n".join(page.get_text() for page in document)
-        document.close()
-        return text if text.strip() else None
+        doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
+        try:
+            page_count = len(doc)
+            empty_pages = 0
+            texts = []
+            for page in doc:
+                page_text = page.get_text()
+                texts.append(page_text)
+                if not page_text.strip():
+                    empty_pages += 1
+            text = "\n\n".join(texts)
+            char_count = len(text.strip())
+            text_density = char_count / page_count if page_count else 0
+            empty_ratio = empty_pages / page_count if page_count else 0
+            success = char_count > 0 and bool(text.strip())
+            low = char_count < 100 or empty_ratio > 0.5 or text_density < 50
+            if not success:
+                low = True
+            quality_flag = "low" if low else "ok"
+            quality = {
+                "page_count": page_count,
+                "char_count": char_count,
+                "empty_pages": empty_pages,
+                "text_density": round(text_density, 2),
+                "success": success,
+                "quality_flag": quality_flag,
+            }
+            return (text if text.strip() else None), quality
+        finally:
+            doc.close()
     except Exception:
-        return None
+        return None, {
+            "page_count": 0,
+            "char_count": 0,
+            "empty_pages": 0,
+            "text_density": 0,
+            "success": False,
+            "quality_flag": "low",
+        }
 
 
 def build_unique_keys(dataframe):
@@ -99,34 +171,40 @@ def make_filename(cnpj, date, subject):
 def scrape_year(year):
     csv_path = download_csv(year)
     dataframe = load_csv(csv_path)
-
     category_column = next(
         (col for col in dataframe.columns if "categ" in col.lower()), None
     )
     if category_column:
-        dataframe[category_column] = dataframe[category_column].fillna("").str.strip().str.lower()
+        dataframe[category_column] = (
+            dataframe[category_column].fillna("").str.strip().str.lower()
+        )
         dataframe = dataframe[dataframe[category_column].isin(KEEP_CATEGORIES)]
-
     if scraper["dry_run"]:
-        print(f"[{year}] {len(dataframe)} rows")
+        logger.info(f"[{year}] {len(dataframe)} rows")
         return
-
     year_dir = DATA_DIR / str(year)
     year_dir.mkdir(parents=True, exist_ok=True)
     pdf_dir = year_dir / "pdfs"
     pdf_dir.mkdir(exist_ok=True)
-
     jsonl_path = year_dir / f"{year}.jsonl"
     manifest_path = year_dir / "manifest.json"
-    done_keys = set(json.load(open(manifest_path))["done"]) if manifest_path.exists() else set()
-
+    existing = {}
+    if manifest_path.exists():
+        try:
+            existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception:
+            existing = {}
+    done_keys = set(existing.get("done", []))
+    extraction_quality = existing.get("extraction_quality", {}) or {}
     dataframe = build_unique_keys(dataframe)
     dataframe = dataframe[~dataframe["unique_key"].isin(done_keys)]
-
     if scraper["max_docs"] > 0:
         dataframe = dataframe.sample(frac=1).head(scraper["max_docs"])
-
-    manifest = {"done": list(done_keys), "failed": []}
+    manifest = {
+        "done": list(done_keys),
+        "failed": [],
+        "extraction_quality": extraction_quality,
+    }
     lock = threading.Lock()
 
     def process_one(index, row):
@@ -138,34 +216,50 @@ def scrape_year(year):
         date = row.get("Data_Referencia", "")
         filename = make_filename(cnpj, date, subject)
         pdf_path = pdf_dir / filename
-
         try:
             if not pdf_path.exists():
+                global_rate_limit()
                 response = requests.get(url, timeout=30)
                 response.raise_for_status()
                 pdf_path.write_bytes(response.content)
-                time.sleep(scraper["delay"])
-
-            text = extract_text(pdf_path.read_bytes())
-            if not text or len(text.strip()) < 100:
+            pdf_bytes = pdf_path.read_bytes()
+            text, quality = extract_text(pdf_bytes)
+            with lock:
+                manifest["extraction_quality"][row["unique_key"]] = quality
+            if not quality["success"]:
                 with lock:
                     manifest["done"].append(row["unique_key"])
                 return True
-
             record = {
-                "cnpj": cnpj, "company": company, "category": category,
-                "subject": subject, "date": date, "year": year,
-                "source_url": url, "filename": filename, "text": text,
+                "cnpj": cnpj,
+                "company": company,
+                "category": category,
+                "subject": subject,
+                "date": date,
+                "year": year,
+                "source_url": url,
+                "filename": filename,
+                "text": text,
+                "extraction_quality": quality,
             }
             with lock:
                 with open(jsonl_path, "a", encoding="utf-8") as f:
                     f.write(json.dumps(record, ensure_ascii=False) + "\n")
                 manifest["done"].append(row["unique_key"])
             return True
-
         except Exception:
             with lock:
                 manifest["failed"].append(row["unique_key"])
+                if row["unique_key"] not in manifest["extraction_quality"]:
+                    q = {
+                        "page_count": 0,
+                        "char_count": 0,
+                        "empty_pages": 0,
+                        "text_density": 0,
+                        "success": False,
+                        "quality_flag": "low",
+                    }
+                    manifest["extraction_quality"][row["unique_key"]] = q
             return False
 
     rows = list(dataframe.iterrows())
@@ -176,14 +270,14 @@ def scrape_year(year):
         for future in as_completed(futures):
             future.result()
             pbar.update(1)
-            if pbar.n % 10 == 0:
-                with lock:
-                    json.dump(manifest, open(manifest_path, "w"))
         pbar.close()
-
     with lock:
-        json.dump(manifest, open(manifest_path, "w"))
-    print(f"[{year}] done: {len(manifest['done'])} extracted, {len(manifest['failed'])} failed")
+        manifest_path.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    logger.info(
+        f"[{year}] done: {len(manifest['done'])} extracted, {len(manifest['failed'])} failed, {sum(1 for v in manifest['extraction_quality'].values() if v.get('quality_flag') == 'low')} low-quality"
+    )
 
 
 if __name__ == "__main__":
@@ -191,4 +285,4 @@ if __name__ == "__main__":
         try:
             scrape_year(year)
         except Exception as error:
-            print(f"[{year}] failed: {error}")
+            logger.error(f"[{year}] failed: {error}")

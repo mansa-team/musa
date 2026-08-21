@@ -1,10 +1,11 @@
-import json
 from pathlib import Path
+
 import yaml
 
-CONFIG_PATH = Path(__file__).parent / "config.yaml"
-config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+config_path = Path(__file__).parent / "config.yaml"
+config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
 paths = config["paths"]
+
 
 def concatenate():
     output_path = Path(paths["corpus"])
@@ -13,16 +14,13 @@ def concatenate():
         print(f"No files found in {paths['output_dir']}")
         return
 
-    total_bytes = 0
-    with open(output_path, "w", encoding="utf-8") as out:
+    with open(output_path, "w", encoding="utf-8") as out_file:
         for file in files:
             content = file.read_text(encoding="utf-8")
-            total_bytes += len(content)
-            out.write(content)
-            out.write("\n")
-            print(f"  {file.name}: {len(content):,} chars")
+            out_file.write(content)
+            out_file.write("\n")
 
-    print(f"{len(files)} files → {output_path} ({total_bytes:,} chars, ~{total_bytes // 4:,} tokens)")
+    print(f"{len(files)} files -> {output_path}")
 
 
 if __name__ == "__main__":
