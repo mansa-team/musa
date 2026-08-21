@@ -1,9 +1,11 @@
-import json, time, zipfile, io
+import json, time, zipfile, io, threading
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import yaml
 import pandas as pd
 import pymupdf, requests
 from tqdm import tqdm
+pymupdf.__del__
 
 CONFIG_PATH = Path(__file__).parent / "config.yaml"
 config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
@@ -125,46 +127,62 @@ def scrape_year(year):
         dataframe = dataframe.sample(frac=1).head(scraper["max_docs"])
 
     manifest = {"done": list(done_keys), "failed": []}
+    lock = threading.Lock()
 
-    with open(jsonl_path, "a", encoding="utf-8") as output_file:
-        for index, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc=f"{year}"):
-            url = row["Link_Download"].strip()
-            cnpj = row.get("CNPJ_Companhia", "")
-            company = row.get("Nome_Companhia", "")
-            category = row.get("Categoria", "")
-            subject = row.get("Assunto", "")
-            date = row.get("Data_Referencia", "")
+    def process_one(index, row):
+        url = row["Link_Download"].strip()
+        cnpj = row.get("CNPJ_Companhia", "")
+        company = row.get("Nome_Companhia", "")
+        category = row.get("Categoria", "")
+        subject = row.get("Assunto", "")
+        date = row.get("Data_Referencia", "")
+        filename = make_filename(cnpj, date, subject)
+        pdf_path = pdf_dir / filename
 
-            filename = make_filename(cnpj, date, subject)
-            pdf_path = pdf_dir / filename
+        try:
+            if not pdf_path.exists():
+                response = requests.get(url, timeout=30)
+                response.raise_for_status()
+                pdf_path.write_bytes(response.content)
+                time.sleep(scraper["delay"])
 
-            try:
-                if not pdf_path.exists():
-                    response = requests.get(url, timeout=30)
-                    response.raise_for_status()
-                    pdf_path.write_bytes(response.content)
-                    time.sleep(scraper["delay"])
-
-                text = extract_text(pdf_path.read_bytes())
-                if not text or len(text.strip()) < 100:
+            text = extract_text(pdf_path.read_bytes())
+            if not text or len(text.strip()) < 100:
+                with lock:
                     manifest["done"].append(row["unique_key"])
-                    continue
+                return True
 
-                record = {
-                    "cnpj": cnpj, "company": company, "category": category,
-                    "subject": subject, "date": date, "year": year,
-                    "source_url": url, "filename": filename, "text": text,
-                }
-                output_file.write(json.dumps(record, ensure_ascii=False) + "\n")
+            record = {
+                "cnpj": cnpj, "company": company, "category": category,
+                "subject": subject, "date": date, "year": year,
+                "source_url": url, "filename": filename, "text": text,
+            }
+            with lock:
+                with open(jsonl_path, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(record, ensure_ascii=False) + "\n")
                 manifest["done"].append(row["unique_key"])
+            return True
 
-            except Exception:
+        except Exception:
+            with lock:
                 manifest["failed"].append(row["unique_key"])
+            return False
 
-            if (index + 1) % 50 == 0:
-                json.dump(manifest, open(manifest_path, "w"))
+    rows = list(dataframe.iterrows())
+    workers = scraper.get("max_workers", 8)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(process_one, i, row): i for i, row in rows}
+        pbar = tqdm(total=len(rows), desc=f"{year}")
+        for future in as_completed(futures):
+            future.result()
+            pbar.update(1)
+            if pbar.n % 10 == 0:
+                with lock:
+                    json.dump(manifest, open(manifest_path, "w"))
+        pbar.close()
 
-    json.dump(manifest, open(manifest_path, "w"))
+    with lock:
+        json.dump(manifest, open(manifest_path, "w"))
     print(f"[{year}] done: {len(manifest['done'])} extracted, {len(manifest['failed'])} failed")
 
 

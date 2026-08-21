@@ -1,6 +1,7 @@
 scraper:
   years: "all"           # "all" for 2003..current, or [2020, 2021, 2022]
   delay: 1.0
+  max_workers: 8
   max_docs: 0            # 0 = unlimited
   dry_run: false
 
