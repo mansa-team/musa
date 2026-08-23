@@ -1,30 +1,26 @@
 scraper:
-  years: 2003-2026
-  delay: 0.0
+  years: 2003-2020
   max_workers: 8
-  max_docs: 0
-  dry_run: false
+
 dapt:
-  chunk_size: 4096
+  chunk_size: 8192
   overlap: 200
   min_length: 400
-  max_length: 8000
-  dry_run: false
   tokenizer: answerdotai/ModernBERT-base
-  language_threshold: 0.05
-  dedup_mode: exact_doc
   seed: 42
+
 paths:
   data_dir: ./data
   output_dir: ./data/output
   corpus: ./data/output/corpus.txt
+
 audit:
   corpus: ./data/output
   benchmark: null
   threshold: 0.85
   shingle: 3
   output: ./data/output/audit.json
-  limit_bench: 0
+
 logging:
   level: INFO
   file: ./data/output/logun.log
