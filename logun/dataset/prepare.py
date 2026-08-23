@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import yaml
 
+from transformers import AutoTokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -89,11 +90,36 @@ def passes_quality_filter(text, min_length=400):
     return True, "ok"
 
 
+def load_tokenizer(tokenizer_name):
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, trust_remote_code=True)
+        return tokenizer
+    except Exception:
+        return None
+
+
+def count_tokens_for_text(text_value, tokenizer_obj):
+    if tokenizer_obj is not None:
+        try:
+            encoded = tokenizer_obj.encode(text_value, add_special_tokens=False)
+
+            return max(1, len(encoded))
+        except Exception:
+            pass
+
+    return max(1, len(text_value) // 4)
+
+
 def compute_token_stats(texts, tokenizer_name="answerdotai/ModernBERT-base"):
     if not texts:
         return {"total": 0, "mean": 0, "median": 0, "p50": 0, "p90": 0, "p95": 0, "estimated": True, "tokenizer": tokenizer_name}
 
-    counts = [max(1, len(text) // 4) for text in texts]
+    tokenizer_obj = load_tokenizer(tokenizer_name)
+
+    estimated_flag = tokenizer_obj is None
+
+    counts = [count_tokens_for_text(text_value, tokenizer_obj) for text_value in texts]
+
     counts_array = np.array(counts)
 
     return {
@@ -101,7 +127,7 @@ def compute_token_stats(texts, tokenizer_name="answerdotai/ModernBERT-base"):
         "median": int(np.median(counts_array)), "p50": int(np.percentile(counts_array, 50)),
         "p90": int(np.percentile(counts_array, 90)), "p95": int(np.percentile(counts_array, 95)),
         "min": int(counts_array.min()), "max": int(counts_array.max()),
-        "estimated": True, "tokenizer": tokenizer_name,
+        "estimated": estimated_flag, "tokenizer": tokenizer_name,
     }
 
 
@@ -183,7 +209,9 @@ def run_pipeline(config_override=None):
     chunks_retained = 0
     chunk_id_counter = 0
 
-    # ponytail: stream — one doc at a time, one chunk write at a time, no batch lists
+    tokenizer_obj = load_tokenizer(tokenizer_name)
+    estimated_flag = tokenizer_obj is None
+
     with open(out_path, "w", encoding="utf-8") as out_handle:
         for file_path in sorted(files):
             with open(file_path, encoding="utf-8") as file_handle:
@@ -229,7 +257,7 @@ def run_pipeline(config_override=None):
                         record = {"text": chunk, "source": "cvm", "company": document.get("company") or "", "cnpj": document.get("cnpj") or "", "category": document.get("category") or "", "subject": document.get("subject") or "", "date": document_date, "year": document_year, "document_id": document_id, "filename": document.get("filename") or "", "source_url": document.get("source_url") or "", "chunk_id": current_id, "extraction_quality": document.get("extraction_quality") or {}}
 
                         by_category[record["category"] or "unknown"] += 1
-                        count = max(1, len(chunk) // 4)
+                        count = count_tokens_for_text(chunk, tokenizer_obj)
                         token_counts.append(count)
                         total_chars += len(chunk)
                         chunks_retained += 1
@@ -239,7 +267,7 @@ def run_pipeline(config_override=None):
     filter_reasons["retained"] = chunks_retained
 
     if not token_counts:
-        token_stats = {"total": 0, "mean": 0, "median": 0, "p50": 0, "p90": 0, "p95": 0, "estimated": True, "tokenizer": tokenizer_name}
+        token_stats = {"total": 0, "mean": 0, "median": 0, "p50": 0, "p90": 0, "p95": 0, "estimated": estimated_flag, "tokenizer": tokenizer_name}
     else:
         counts_array = np.array(token_counts)
         token_stats = {
@@ -247,7 +275,7 @@ def run_pipeline(config_override=None):
             "median": int(np.median(counts_array)), "p50": int(np.percentile(counts_array, 50)),
             "p90": int(np.percentile(counts_array, 90)), "p95": int(np.percentile(counts_array, 95)),
             "min": int(counts_array.min()), "max": int(counts_array.max()),
-            "estimated": True, "tokenizer": tokenizer_name,
+            "estimated": estimated_flag, "tokenizer": tokenizer_name,
         }
 
     seed = int(dapt_config.get("seed", 42))
@@ -255,7 +283,28 @@ def run_pipeline(config_override=None):
     normalized_dapt = {key: dapt_config[key] for key in sorted(dapt_config.keys()) if key != "max_length"}
     normalized_dapt["max_length"] = chunk_size
 
-    manifest = {"dataset": "cvm_ipe", "generated_at": datetime.datetime.utcnow().isoformat() + "Z", "documents_loaded": docs_loaded, "documents_deduplicated": 0, "chunks_generated": chunks_generated, "chunks_retained": chunks_retained, "filter_reasons": dict(filter_reasons), "by_category": dict(by_category), "tokens": token_stats, "dapt_config": normalized_dapt, "seed": seed}
+    # ponytail: materialize bytes + averages for manifest so bytes/token stays ~4.5 not 117
+    corpus_bytes = 0
+
+    try:
+        corpus_bytes = out_path.stat().st_size
+    except Exception:
+        corpus_bytes = total_chars
+
+    avg_chars = round(total_chars / chunks_retained, 2) if chunks_retained else 0
+    avg_tokens = token_stats.get("mean", 0)
+    avg_bytes_per_token = round(corpus_bytes / token_stats["total"], 2) if token_stats["total"] else 0
+
+    manifest = {
+        "dataset": "cvm_ipe", "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
+        "documents_loaded": docs_loaded, "documents_deduplicated": 0,
+        "chunks_generated": chunks_generated, "chunks_retained": chunks_retained,
+        "filter_reasons": dict(filter_reasons), "by_category": dict(by_category),
+        "tokens": token_stats, "dapt_config": normalized_dapt, "seed": seed,
+        "bytes": corpus_bytes, "total_chars": total_chars,
+        "avg_chars_per_chunk": avg_chars, "avg_tokens_per_chunk": avg_tokens,
+        "avg_bytes_per_token": avg_bytes_per_token,
+    }
     (out_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
     audit_run = {"documents_retained": chunks_retained, "chunks": chunks_retained, "tokens": token_stats["total"], "chars": total_chars, "by_category": dict(by_category)}

@@ -1,5 +1,5 @@
 scraper:
-  years: 2003-2020
+  years: 2003-2026
   max_workers: 8
 
 dapt:
@@ -8,6 +8,7 @@ dapt:
   min_length: 400
   tokenizer: answerdotai/ModernBERT-base
   seed: 42
+  token_target: 250M
 
 paths:
   data_dir: ./data
