@@ -19,6 +19,27 @@ TOKEN_PATTERN = re.compile(r"\w+")
 TARGET_CATEGORIES = {"fato relevante", "comunicado ao mercado", "aviso aos acionistas"}
 
 
+def _load_tokenizer(model_name):
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        return None
+
+    try:
+        return AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+    except Exception:
+        return None
+
+
+def _count_tokens(text_value, tokenizer_obj):
+    if tokenizer_obj is not None:
+        try:
+            return len(tokenizer_obj.encode(text_value, add_special_tokens=False))
+        except Exception:
+            pass
+    return max(1, len(text_value) // 4)
+
+
 def parse_token_target(raw_value):
     if isinstance(raw_value, int):
         if raw_value <= 0:
@@ -119,6 +140,14 @@ def main():
 
     target_tokens = parse_token_target(raw_target)
     suffix_label = normalize_token_suffix(target_tokens)
+    tokenizer_name = dapt_config.get("tokenizer", "answerdotai/ModernBERT-base")
+    tokenizer_obj = _load_tokenizer(tokenizer_name)
+
+    if tokenizer_obj is None:
+        print(f"[split] tokenizer {tokenizer_name} not available fallback len//4", file=sys.stderr)
+    else:
+        print(f"[split] tokenizer {tokenizer_name} loaded", file=sys.stderr)
+
     paths_config = config_data.get("paths") or {}
     raw_output_dir = paths_config.get("output_dir", "./data/output")
     base_dir = Path(__file__).parent
@@ -158,7 +187,7 @@ def main():
             category_value = (chunk_obj.get("category") or "").strip()
             category_lower = category_value.lower()
             by_category_total[category_value or "unknown"] += 1
-            token_estimate = max(1, len(text_value) // 4)
+            token_estimate = _count_tokens(text_value, tokenizer_obj)
             normalized = unicodedata.normalize("NFC", text_value).lower()
             token_list = TOKEN_PATTERN.findall(normalized)
             counter = collections.Counter()
@@ -250,6 +279,34 @@ def main():
 
         top_bucket_info.append({"bucket": bucket_index, "log_ratio": round(log_ratio[bucket_index], 4), "top_ngram": top_ngram, "count": top_count})
 
+    # KL divergence pre/post on hashed buckets — paper stats (Xie 2023 KL reduction r=0.82)
+    selected_counts = [0] * BUCKET_COUNT
+    selected_total = 0
+
+    for entry_index in selected_indices:
+        counter, _, _ = stored_entries[entry_index]
+
+        for bucket_index, count_value in counter.items():
+            selected_counts[bucket_index] += count_value
+            selected_total += count_value
+
+    denom_selected = selected_total + SMOOTH_ALPHA * BUCKET_COUNT if selected_total else BUCKET_COUNT
+    kl_pre = 0.0
+    kl_post = 0.0
+
+    for bucket_index in range(BUCKET_COUNT):
+        gamma = (target_counts[bucket_index] + SMOOTH_ALPHA) / denom_target if denom_target else 1.0 / BUCKET_COUNT
+        nu_value = (source_counts[bucket_index] + SMOOTH_ALPHA) / denom_source if denom_source else 1.0 / BUCKET_COUNT
+        sel_n = (selected_counts[bucket_index] + SMOOTH_ALPHA) / denom_selected
+
+        if gamma > 0 and nu_value > 0:
+            kl_pre += gamma * math.log(gamma / nu_value)
+
+        if gamma > 0 and sel_n > 0:
+            kl_post += gamma * math.log(gamma / sel_n)
+
+    kl_reduction = kl_pre - kl_post
+    kl_ratio = (kl_reduction / kl_pre) if kl_pre else 0.0
     manifest_data = {
         "target_tokens": target_tokens,
         "target_label": suffix_label,
@@ -259,6 +316,12 @@ def main():
         "target_seed_size": target_seed_size,
         "bucket_count": BUCKET_COUNT,
         "method": "DSIR hashed 1+2gram M=10000 KL-proven",
+        "kl_divergence": {
+            "pre": round(kl_pre, 4),
+            "post": round(kl_post, 4),
+            "reduction": round(kl_reduction, 4),
+            "ratio": round(kl_ratio, 4),
+        },
         "by_category_total": dict(by_category_total),
         "by_category_selected": dict(by_category_selected),
         "top_buckets": top_bucket_info,

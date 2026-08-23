@@ -187,9 +187,9 @@ def run_pipeline(config_override=None):
 
     logger.info(f"Inputs: {[str(file_path) for file_path in files]}")
 
-    chunk_size = int(dapt_config.get("chunk_size", 1800))
+    chunk_size = int(dapt_config.get("chunk_size", 8192))
     overlap = int(dapt_config.get("overlap", 200))
-    min_length = int(dapt_config.get("min_length", 200))
+    min_length = int(dapt_config.get("min_length", 400))
     tokenizer_name = dapt_config.get("tokenizer", "answerdotai/ModernBERT-base")
 
     raw_output = Path(paths_config["output_dir"])
