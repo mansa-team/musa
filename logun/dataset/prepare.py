@@ -161,92 +161,107 @@ def run_pipeline(config_override=None):
 
     logger.info(f"Inputs: {[str(file_path) for file_path in files]}")
 
-    documents = []
-
-    for file_path in sorted(files):
-        with open(file_path, encoding="utf-8") as file_handle:
-            for line in file_handle:
-                if line.strip():
-                    try:
-                        record = json.loads(line)
-                    except Exception:
-                        continue
-
-                    record["src_file"] = str(file_path)
-
-                    documents.append(record)
-
-    docs_loaded = len(documents)
-
-    for document in documents:
-        document["text"] = clean_text(document.get("text", ""))
-
-    documents = [document for document in documents if document.get("text", "").strip()]
-
     chunk_size = int(dapt_config.get("chunk_size", 1800))
     overlap = int(dapt_config.get("overlap", 200))
     min_length = int(dapt_config.get("min_length", 200))
-
-    all_records = []
-    chunk_id_counter = 0
-
-    for document in documents:
-        document_year = int(document.get("year") or 0)
-        document_date = str(document.get("date", ""))
-        document_id = document.get("document_id") or hashlib.sha256(document.get("text", "").encode()).hexdigest()[:12]
-
-        for chunk in chunk_text(document["text"], chunk_size, overlap):
-            record = {"text": chunk, "source": "cvm", "company": document.get("company") or "", "cnpj": document.get("cnpj") or "", "category": document.get("category") or "", "subject": document.get("subject") or "", "date": document_date, "year": document_year, "document_id": document_id, "filename": document.get("filename") or "", "source_url": document.get("source_url") or "", "chunk_id": chunk_id_counter, "extraction_quality": document.get("extraction_quality") or {}}
-
-            chunk_id_counter += 1
-            all_records.append(record)
-
-    chunks_generated = len(all_records)
-
-    seen_hashes = set()
-    filtered = []
-    filter_reasons = collections.Counter()
-
-    for record in all_records:
-        chunk_text_value = record["text"]
-        chunk_hash = hashlib.sha256(chunk_text_value.encode()).hexdigest()
-
-        if chunk_hash in seen_hashes:
-            filter_reasons["duplicate_chunk"] += 1
-            continue
-
-        passes, reason = passes_quality_filter(chunk_text_value, min_length)
-
-        if not passes:
-            filter_reasons[reason] += 1
-            continue
-
-        seen_hashes.add(chunk_hash)
-        filtered.append(record)
-
-    filter_reasons["retained"] = len(filtered)
     tokenizer_name = dapt_config.get("tokenizer", "answerdotai/ModernBERT-base")
-    token_stats = compute_token_stats([record["text"] for record in filtered], tokenizer_name)
-    by_category = collections.Counter(record["category"] or "unknown" for record in filtered)
-    raw_output = Path(paths_config["output_dir"])
 
+    raw_output = Path(paths_config["output_dir"])
     out_dir = (Path(__file__).parent / raw_output).resolve() if not raw_output.is_absolute() else raw_output.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     stem = "corpus"
-    format_output(filtered, out_dir, stem)
+    out_path = out_dir / f"{stem}.jsonl"
+
+    seen_hashes = set()
+    filter_reasons = collections.Counter()
+    by_category = collections.Counter()
+    token_counts = []
+    total_chars = 0
+    docs_loaded = 0
+    chunks_generated = 0
+    chunks_retained = 0
+    chunk_id_counter = 0
+
+    # ponytail: stream — one doc at a time, one chunk write at a time, no batch lists
+    with open(out_path, "w", encoding="utf-8") as out_handle:
+        for file_path in sorted(files):
+            with open(file_path, encoding="utf-8") as file_handle:
+                for line in file_handle:
+                    if not line.strip():
+                        continue
+
+                    try:
+                        document = json.loads(line)
+                    except Exception:
+                        continue
+
+                    docs_loaded += 1
+
+                    cleaned = clean_text(document.get("text", ""))
+
+                    if not cleaned.strip():
+                        continue
+
+                    document_year = int(document.get("year") or 0)
+                    document_date = str(document.get("date", ""))
+                    document_id = document.get("document_id") or hashlib.sha256(cleaned.encode()).hexdigest()[:12]
+
+                    for chunk in chunk_text(cleaned, chunk_size, overlap):
+                        current_id = chunk_id_counter
+                        chunk_id_counter += 1
+                        chunks_generated += 1
+
+                        chunk_hash = hashlib.sha256(chunk.encode()).hexdigest()
+
+                        if chunk_hash in seen_hashes:
+                            filter_reasons["duplicate_chunk"] += 1
+                            continue
+
+                        passes, reason = passes_quality_filter(chunk, min_length)
+
+                        if not passes:
+                            filter_reasons[reason] += 1
+                            continue
+
+                        seen_hashes.add(chunk_hash)
+
+                        record = {"text": chunk, "source": "cvm", "company": document.get("company") or "", "cnpj": document.get("cnpj") or "", "category": document.get("category") or "", "subject": document.get("subject") or "", "date": document_date, "year": document_year, "document_id": document_id, "filename": document.get("filename") or "", "source_url": document.get("source_url") or "", "chunk_id": current_id, "extraction_quality": document.get("extraction_quality") or {}}
+
+                        by_category[record["category"] or "unknown"] += 1
+                        count = max(1, len(chunk) // 4)
+                        token_counts.append(count)
+                        total_chars += len(chunk)
+                        chunks_retained += 1
+
+                        out_handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    filter_reasons["retained"] = chunks_retained
+
+    if not token_counts:
+        token_stats = {"total": 0, "mean": 0, "median": 0, "p50": 0, "p90": 0, "p95": 0, "estimated": True, "tokenizer": tokenizer_name}
+    else:
+        counts_array = np.array(token_counts)
+        token_stats = {
+            "total": int(counts_array.sum()), "mean": round(float(counts_array.mean()), 2),
+            "median": int(np.median(counts_array)), "p50": int(np.percentile(counts_array, 50)),
+            "p90": int(np.percentile(counts_array, 90)), "p95": int(np.percentile(counts_array, 95)),
+            "min": int(counts_array.min()), "max": int(counts_array.max()),
+            "estimated": True, "tokenizer": tokenizer_name,
+        }
+
     seed = int(dapt_config.get("seed", 42))
 
     normalized_dapt = {key: dapt_config[key] for key in sorted(dapt_config.keys()) if key != "max_length"}
     normalized_dapt["max_length"] = chunk_size
 
-    manifest = {"dataset": "cvm_ipe", "generated_at": datetime.datetime.utcnow().isoformat() + "Z", "documents_loaded": docs_loaded, "documents_deduplicated": 0, "chunks_generated": chunks_generated, "chunks_retained": len(filtered), "filter_reasons": dict(filter_reasons), "by_category": dict(by_category), "tokens": token_stats, "dapt_config": normalized_dapt, "seed": seed}
+    manifest = {"dataset": "cvm_ipe", "generated_at": datetime.datetime.utcnow().isoformat() + "Z", "documents_loaded": docs_loaded, "documents_deduplicated": 0, "chunks_generated": chunks_generated, "chunks_retained": chunks_retained, "filter_reasons": dict(filter_reasons), "by_category": dict(by_category), "tokens": token_stats, "dapt_config": normalized_dapt, "seed": seed}
     (out_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    audit_run = {"documents_retained": len(filtered), "chunks": len(filtered), "tokens": token_stats["total"], "chars": sum(len(record["text"]) for record in filtered), "by_category": dict(by_category)}
+    audit_run = {"documents_retained": chunks_retained, "chunks": chunks_retained, "tokens": token_stats["total"], "chars": total_chars, "by_category": dict(by_category)}
     (out_dir / "audit.json").write_text(json.dumps(audit_run, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    logger.info(f"Done: {len(filtered)} chunks, tokens={token_stats['total']}")
+    logger.info(f"Done: {chunks_retained} chunks, tokens={token_stats['total']}")
 
 
 if __name__ == "__main__":
