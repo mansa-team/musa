@@ -68,7 +68,7 @@ These will evaluate the ability of the model in
 
 with a script running on each run to verify the latency stats from each model
 
-for size optimization matters, the researcher extracted the cvm fillings from 2003 - 2020, totalling about 122gb, which, when passed through the prepare.py for dedup and chunking for the final corpus totalled about 4.67gb of corpus data. Ill later on run the scraper on 2021 - 2026 data for a improved corpus, right now, the corpus contains 1.03B tokens.
+for size optimization matters, the researcher extracted the cvm fillings from 2003 - 2020, totalling about 122gb, which, when passed through the prepare.py for dedup and chunking for the final corpus totalled about 6.75gb of corpus data. Ill later on run the scraper on 2021 - 2026 data for a improved corpus, right now, the corpus contains 2.35B tokens.
 
 according to dapt papers, the sweetspot for tokens on dapt is about 250M, which will be used as input for the split_corpus.py script, this sums to about 2days in continuous training in the 1660super at 3 epochs. The dapt script will use MLM on LoRa for efficient VRAM usage for the newly trained model.
 
