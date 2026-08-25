@@ -417,10 +417,36 @@ def main():
     kl_red = kl_pre - kl_post
     kl_ratio = (kl_red / kl_pre) if kl_pre else 0.0
     mean_tokens = accumulated / len(selected) if selected else 0
+    # word-proxy token stats for manifest (replaces separate audit.json)
+    est_selected = [stored[idx][2] for idx in selected] if selected else []
+    if est_selected and np is not None:
+        est_arr = np.array(est_selected, dtype=np.int64)
+        median_tokens = int(np.median(est_arr))
+        p90_tokens = int(np.percentile(est_arr, 90))
+        p95_tokens = int(np.percentile(est_arr, 95))
+        p99_tokens = int(np.percentile(est_arr, 99))
+        min_tokens = int(np.min(est_arr))
+        max_tokens = int(np.max(est_arr))
+        std_tokens = float(np.std(est_arr))
+    elif est_selected:
+        est_sorted = sorted(est_selected)
+        n = len(est_sorted)
+        median_tokens = est_sorted[n // 2]
+        p90_tokens = est_sorted[int(n * 0.90)]
+        p95_tokens = est_sorted[int(n * 0.95)]
+        p99_tokens = est_sorted[int(n * 0.99)]
+        min_tokens = est_sorted[0]
+        max_tokens = est_sorted[-1]
+        std_tokens = 0.0
+        mean_tokens = sum(est_sorted) / n if n else 0
+    else:
+        median_tokens = p90_tokens = p95_tokens = p99_tokens = min_tokens = max_tokens = 0
+        std_tokens = 0.0
     expected_threshold = (2 * target_tokens / mean_tokens) if mean_tokens else 0
     hoje_ratio = (hoje_count / total) if total else 0
     duplicate_ratio = (duplicate_filtered / (total + duplicate_filtered)) if (total + duplicate_filtered) else 0
     kl_gate_pass = kl_post < 0.06 and kl_red > 0
+    logger.info(f"[split] stats: mean={mean_tokens:.0f} median={median_tokens} p90={p90_tokens} p95={p95_tokens} p99={p99_tokens} min={min_tokens} max={max_tokens}")
     logger.info(f"[split] gates: KL pre={kl_pre:.4f} post={kl_post:.4f} red={kl_red:.4f} pass={kl_gate_pass} r=0.82 predictive")
     logger.info(f"[split] gates: duplicate_ratio={duplicate_ratio:.2%} (need <5%), hoje_ratio={hoje_ratio:.2%} (need ≤5%)")
     logger.info(f"[split] gates: expected_threshold={expected_threshold:.0f} vs selected={len(selected)} mean={mean_tokens:.0f}")
@@ -435,6 +461,17 @@ def main():
         "bucket_count": BUCKET_COUNT,
         "method": "DSIR Gumbel resampled hashed 1+2gram M=10000 split+zlib.crc32 parallel shard offset-IPC",
         "seed": seed_value,
+        "token_stats": {
+            "mean": round(mean_tokens, 1),
+            "median": median_tokens,
+            "p90": p90_tokens,
+            "p95": p95_tokens,
+            "p99": p99_tokens,
+            "min": min_tokens,
+            "max": max_tokens,
+            "std": round(std_tokens, 1),
+            "estimator": "len(text)//4 capped 8192 word-proxy (ModernBERT/RoBERTa ±12% fertility)",
+        },
         "kl_divergence": {"pre": round(kl_pre, 4), "post": round(kl_post, 4), "reduction": round(kl_red, 4), "ratio": round(kl_ratio, 4), "gate_pass": kl_gate_pass},
         "gates": {
             "duplicate_ratio": round(duplicate_ratio, 4),
