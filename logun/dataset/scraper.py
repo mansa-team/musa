@@ -34,6 +34,7 @@ def ocr_pdf_bytes(pdf_bytes):
 
 
 def setup_logging(logging_config):
+    logging_config = logging_config or {}
     level_name = str(logging_config.get("level", "INFO")).upper()
     level_value = getattr(logging, level_name, logging.INFO)
 
@@ -43,7 +44,7 @@ def setup_logging(logging_config):
         log_path = Path(log_file)
 
         if not log_path.is_absolute():
-            log_path = Path(__file__).parent / log_path
+            log_path = (CONFIG_PATH.parent / log_path).resolve() if "CONFIG_PATH" in globals() else (Path(__file__).resolve().parents[1] / log_path).resolve()
 
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -52,15 +53,15 @@ def setup_logging(logging_config):
         logging.basicConfig(level=level_value)
 
 
-CONFIG_PATH = Path(__file__).parent / "config.yaml"
+CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yaml"
 
 config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
 scraper = config["scraper"]
 paths = config["paths"]
 
 BASE_URL = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/IPE/DADOS/"
-DATA_DIR = Path(__file__).parent / paths["data_dir"]
-OUTPUT_DIR = Path(__file__).parent / paths["output_dir"]
+DATA_DIR = (CONFIG_PATH.parent / paths["data_dir"]).resolve()
+OUTPUT_DIR = (CONFIG_PATH.parent / paths["output_dir"]).resolve()
 AUDIT_DIR = OUTPUT_DIR
 SCRAPABLE_YEARS = list(range(2003, 2027))
 KEEP_CATEGORIES = {

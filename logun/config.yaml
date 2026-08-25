@@ -1,0 +1,17 @@
+seed: 42
+
+scraper:
+  years: 2003-2026
+  max_workers: 8
+
+dapt:
+  chunk_size: 8192
+  overlap: 200
+  min_length: 400
+  tokenizer: answerdotai/ModernBERT-base
+  token_target: 250M
+
+paths:
+  data_dir: dataset/data
+  output_dir: dataset/data/output
+  corpus: dataset/data/output/corpus.txt

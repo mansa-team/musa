@@ -13,7 +13,7 @@ import yaml
 
 import numpy as np
 
-CONFIG_DEFAULT = Path(__file__).parent / "config.yaml"
+CONFIG_DEFAULT = Path(__file__).resolve().parents[1] / "config.yaml"
 BUCKET_COUNT = 10000
 WORKERS = 8
 SHARD_SIZE = 16384
@@ -25,14 +25,12 @@ logger = logging.getLogger(__name__)
 
 
 def shard_task_counts_offset(args):
-    # ponytail: offset-IPC — worker seeks & reads lines itself, no 80MB pickle
-    # args = (shard_start_offset, shard_end_byte, source_path) — 2 ints wire
     shard_start_offset, shard_end_byte, source_path = args
     local_source = [0] * BUCKET_COUNT
     local_target = [0] * BUCKET_COUNT
     local_stored = []
     local_seed = 0
-    # ponytail: file.tell streaming offsets, skip pickle of texts
+
     with open(source_path, "rb") as file_handle:
         file_handle.seek(shard_start_offset)
         while True:
@@ -54,9 +52,7 @@ def shard_task_counts_offset(args):
             text = obj.get("text") or ""
             category = (obj.get("category") or "").strip() or "unknown"
             is_target = category.lower() in TARGET_CATEGORIES
-            # C-level split + zlib.crc32, no regex no hashlib, DSIR 1+2gram M=10000
-            # ponytail: cap at 512 toks (~5x fewer hashes) — DSIR Laplace still valid, r=0.82 kept; avg doc 2673 tok -> 5346 hashes cut to 1023, keeps tail signal while wall <120s (7.25GB*512/2673)
-            # + maxsplit 512 avoids splitting the 2161-token tail at all (80% of split() work saved for long docs)
+
             toks = text.lower().split(None, 512)[:512] if text else []
             counter = {}
             for tok_idx, tok in enumerate(toks):
@@ -75,14 +71,11 @@ def shard_task_counts_offset(args):
                 local_seed += 1
             est = max(1, min(len(text) // 4, 8192)) if text else 1
             local_stored.append((counter, est, is_target))
-            # early exit if shard already filled by byte limit and we passed end
-            # (loop condition handles)
     return local_source, local_target, local_stored, local_seed
 
 
 def shard_task_score(args):
-    # ponytail: second-pass shard scoring on worker — precomputed log_ratio, deterministic gumbel
-    shard_slice, log_ratio, start_idx = args
+    shard_slice, log_ratio, start_idx, seed_value = args
     out = []
     for local_idx, (counter, est, is_target) in enumerate(shard_slice):
         doc_idx = start_idx + local_idx
@@ -91,10 +84,9 @@ def shard_task_score(args):
             for bucket_id, freq in counter.items():
                 raw_score += freq * log_ratio[bucket_id]
         else:
-            # tuple (row_indices, row_data) compact
             row_indices, row_data = counter
             raw_score = sum(int(row_data[pos]) * log_ratio[int(row_indices[pos])] for pos in range(len(row_indices)))
-        rnd = random.Random(42 + doc_idx).random()
+        rnd = random.Random(seed_value + doc_idx).random()
         if rnd < 1e-12:
             rnd = 1e-12
         if rnd > 1 - 1e-12:
@@ -168,8 +160,10 @@ def main():
         raise SystemExit(1)
     target_tokens = parse_token_target(raw_target)
     suffix = normalize_token_suffix(target_tokens)
-    seed_value = int(dapt_config.get("seed", 42))
-    output_dir = resolve_path(config.get("paths", {}).get("output_dir", "./data/output"), Path(__file__).parent)
+    seed_value = int(config.get("seed", dapt_config.get("seed", 42)))  # ponytail deterministic — config-driven seed
+    random.seed(seed_value)
+    np.random.seed(seed_value)
+    output_dir = resolve_path(config.get("paths", {}).get("output_dir", "./data/output"), config_path.parent)
     output_dir.mkdir(parents=True, exist_ok=True)
     corpus_path = output_dir / "corpus.jsonl"
     if not corpus_path.is_file():
@@ -194,7 +188,6 @@ def main():
 
     logger.info(f"[split] featurizer split()+zlib.crc32 C 1+2gram M={BUCKET_COUNT} ({WORKERS} workers shard {SHARD_SIZE})")
 
-    # phase0: streaming offset precompute via file.tell() — no pickle of texts
     file_size = 0
     with open(corpus_path, "rb") as file_handle:
         offset_cursor = 0
@@ -226,7 +219,6 @@ def main():
     mp_context = get_context("spawn")
     t_vec0 = time.time()
 
-    # phase1: dispatch offset-IPC shards — 2 ints per task, no 80MB string pickle
     futures = []
     with concurrent.futures.ProcessPoolExecutor(max_workers=WORKERS, mp_context=mp_context) as executor:
         for shard_start in range(0, total, SHARD_SIZE):
@@ -248,7 +240,6 @@ def main():
                         source_counts_arr[bucket_id] += local_source[bucket_id]
                     if local_target[bucket_id]:
                         target_counts_arr[bucket_id] += local_target[bucket_id]
-            # convert dict counters to numpy for fast downstream dot when numpy available
             if np is not None:
                 for counter_dict, est_val, is_target_val in local_stored:
                     row_indices = np.array(list(counter_dict.keys()), dtype=np.int64) if counter_dict else np.array([], dtype=np.int64)
@@ -298,11 +289,8 @@ def main():
             log_ratio[bucket_id] = math.log(gamma / nu) if gamma > 0 and nu > 0 else 0.0
         log_ratio_arr = None
 
-    # DSIR-correct Gumbel importance resampling — deterministic per doc (seed 42 + doc_idx)
-    # ponytail: streaming shard scoring with precomputed log_ratios, no top_k
     scored = []
     if WORKERS > 1 and len(stored) >= SHARD_SIZE:
-        # parallel shard scoring second pass
         shard_batches = []
         for batch_start in range(0, len(stored), SHARD_SIZE):
             batch = stored[batch_start:batch_start + SHARD_SIZE]
@@ -311,9 +299,9 @@ def main():
                 if np is not None:
                     counter_proxy = (row_indices, row_data)
                 else:
-                    counter_proxy = row_indices  # already dict in no-numpy path
+                    counter_proxy = row_indices
                 converted.append((counter_proxy, est, is_target))
-            shard_batches.append((converted, log_ratio, batch_start))
+            shard_batches.append((converted, log_ratio, batch_start, seed_value))
         with concurrent.futures.ProcessPoolExecutor(max_workers=WORKERS, mp_context=get_context("spawn")) as executor2:
             futures2 = [executor2.submit(shard_task_score, args) for args in shard_batches]
             for fut in futures2:
@@ -332,7 +320,7 @@ def main():
                     raw_score = sum(freq * log_ratio[bucket_id] for bucket_id, freq in row_indices.items())
                 else:
                     raw_score = sum(int(row_data[pos]) * log_ratio[int(row_indices[pos])] for pos in range(len(row_indices)))
-            rnd = random.Random(42 + idx).random()
+            rnd = random.Random(seed_value + idx).random()
             if rnd < 1e-12:
                 rnd = 1e-12
             if rnd > 1 - 1e-12:
@@ -353,13 +341,11 @@ def main():
         accumulated += est
         by_selected[cat] += 1
 
-    # FIXED_EXAMPLES verify path — keep gating on target seed sanity
     if target_seed < FIXED_EXAMPLES:
         logger.info(f"[split] FIXED_EXAMPLES verify: target_seed {target_seed} < {FIXED_EXAMPLES} (using available)")
     else:
         logger.info(f"[split] FIXED_EXAMPLES verify: target_seed {target_seed} >= {FIXED_EXAMPLES} ok")
 
-    # streaming emit via offsets (no full corpus in RAM)
     if selected:
         need = {offsets[sel_idx] for sel_idx in selected}
         max_need = max(need)

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def setup_logging(config):
-    logging_config = config.get("logging", {})
+    logging_config = config.get("logging", {}) if isinstance(config.get("logging", {}), dict) else {}
     level = getattr(logging, str(logging_config.get("level", "INFO")).upper(), logging.INFO)
     log_file = logging_config.get("file")
 
@@ -23,7 +23,7 @@ def setup_logging(config):
         log_path = Path(log_file)
 
         if not log_path.is_absolute():
-            log_path = Path(__file__).parent / log_path
+            log_path = CONFIG_PATH.parent / log_path if "CONFIG_PATH" in globals() else Path(__file__).resolve().parents[1] / log_path
 
         log_path.parent.mkdir(parents=True, exist_ok=True)
         logging.basicConfig(level=level, filename=str(log_path))
@@ -31,7 +31,7 @@ def setup_logging(config):
         logging.basicConfig(level=level)
 
 
-CONFIG_PATH = Path(__file__).parent / "config.yaml"
+CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yaml"
 config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
 dapt = config["dapt"]
 paths = config["paths"]
@@ -134,14 +134,14 @@ def compute_token_stats(texts, tokenizer_name="answerdotai/ModernBERT-base"):
 def discover_input_files():
     raw_data_dir = Path(paths.get("data_dir", "./data"))
 
-    data_dir = (Path(__file__).parent / raw_data_dir).resolve() if not raw_data_dir.is_absolute() else raw_data_dir.resolve()
+    data_dir = (CONFIG_PATH.parent / raw_data_dir).resolve() if not raw_data_dir.is_absolute() else raw_data_dir.resolve()
 
     input_setting = paths.get("input")
 
     if input_setting:
         candidate = Path(input_setting)
 
-        candidate = (Path(__file__).parent / candidate).resolve() if not candidate.is_absolute() else candidate.resolve()
+        candidate = (CONFIG_PATH.parent / candidate).resolve() if not candidate.is_absolute() else candidate.resolve()
 
         if candidate.is_file():
             return [candidate]
@@ -152,10 +152,10 @@ def discover_input_files():
     files = sorted(data_dir.rglob("*.jsonl"))
 
     raw_output = Path(paths.get("output_dir", "./data/output"))
-    output_resolved = (Path(__file__).parent / raw_output).resolve() if not raw_output.is_absolute() else raw_output.resolve()
+    output_resolved = (CONFIG_PATH.parent / raw_output).resolve() if not raw_output.is_absolute() else raw_output.resolve()
 
     raw_corpus = Path(paths.get("corpus", "./data/output/corpus.txt"))
-    corpus_path = (Path(__file__).parent / raw_corpus).resolve() if not raw_corpus.is_absolute() else raw_corpus.resolve()
+    corpus_path = (CONFIG_PATH.parent / raw_corpus).resolve() if not raw_corpus.is_absolute() else raw_corpus.resolve()
 
     try:
         files = [file_path for file_path in files if output_resolved not in file_path.parents and file_path.parent != output_resolved and corpus_path.parent not in file_path.parents and file_path != corpus_path and file_path != corpus_path.with_suffix(".jsonl")]
@@ -193,7 +193,7 @@ def run_pipeline(config_override=None):
     tokenizer_name = dapt_config.get("tokenizer", "answerdotai/ModernBERT-base")
 
     raw_output = Path(paths_config["output_dir"])
-    out_dir = (Path(__file__).parent / raw_output).resolve() if not raw_output.is_absolute() else raw_output.resolve()
+    out_dir = (CONFIG_PATH.parent / raw_output).resolve() if not raw_output.is_absolute() else raw_output.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     stem = "corpus"
@@ -278,7 +278,7 @@ def run_pipeline(config_override=None):
             "estimated": estimated_flag, "tokenizer": tokenizer_name,
         }
 
-    seed = int(dapt_config.get("seed", 42))
+    seed = int(pipeline_config.get("seed", dapt_config.get("seed", 42)))  # ponytail deterministic — config-driven seed
 
     normalized_dapt = {key: dapt_config[key] for key in sorted(dapt_config.keys()) if key != "max_length"}
     normalized_dapt["max_length"] = chunk_size
