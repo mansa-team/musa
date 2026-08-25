@@ -42,7 +42,7 @@ args = TrainingArguments(
     num_train_epochs=1.5,           # 250M sweet spot 1.5 pass, not 3 (overfit KL 0.053)
 
     optim="adamw_torch_fused",
-    learning_rate=0.00005, warmup_ratio=0.06,
+    learning_rate=0.00005, warmup_steps=500,
     weight_decay=0.01, adam_beta1=0.9, adam_beta2=0.95, # adamw_torch_fused
 
     fp16=True,
