@@ -8,7 +8,7 @@ from transformers import AutoTokenizer, AutoModelForMaskedLM, DataCollatorForLan
 from peft import LoraConfig, get_peft_model, TaskType
 
 model_name = 'Itau-Unibanco/NorBERTo-base'
-checkpoint_name = f'logun-base {datetime.now().date()}-mlm'
+checkpoint_name = f'logun-base-{datetime.now().date()}-mlm'
 
 config = Path(__file__).resolve().parent / "config.yaml"
 config = yaml.safe_load(config.read_text(encoding="utf-8"))
@@ -17,7 +17,7 @@ CACHE = Path(__file__).resolve().parent / "models"
 CACHE.mkdir(parents=True, exist_ok=True)
 
 tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=str(CACHE), use_fast=True)
-model = AutoModelForMaskedLM.from_pretrained(model_name, cache_dir=str(CACHE), trust_remote_code=True)
+model = AutoModelForMaskedLM.from_pretrained(model_name, cache_dir=str(CACHE), device_map="auto", torch_dtype=torch.float16)
 
 model = get_peft_model(model, LoraConfig(
     task_type=TaskType.TOKEN_CLS,
@@ -34,25 +34,32 @@ tokenized_dataset = dataset.map(
 )
 
 args = TrainingArguments(
-    output_dir=str(CACHE / "logun-base-250M"),
+    output_dir=str(CACHE / checkpoint_name),
 
     per_device_train_batch_size=4,  # 4x8192 tokens ~3.2gb
     per_device_eval_batch_size=8,   # eval has no gradient, so 2x
     gradient_accumulation_steps=8,  # 4x8=32 -> 32x8192=~262ktok/step
     num_train_epochs=1.5,           # 250M sweet spot 1.5 pass, not 3 (overfit KL 0.053)
+
+    optim="adamw_torch_fused",
     learning_rate=0.00005, warmup_ratio=0.06,
     weight_decay=0.01, adam_beta1=0.9, adam_beta2=0.95, # adamw_torch_fused
+
     fp16=True,
+    fp16=True,
+    tf32=False,
     seed=config['seed'],
+
     logging_steps=50,
     eval_strategy="steps", eval_steps=500,
     save_steps=500, save_total_limit=2,
+
+    dataloader_pin_memory=True
 )
 
 collator = DataCollatorForLanguageModeling(tokenizer, mlm=True, mlm_probability=0.15)
 trainer = Trainer(model=model, args=args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator)
 
-trainer.train()
+trainer.train(resume_from_checkpoint=True)
 trainer.save(str(CACHE / checkpoint_name))
-
 # about 2 days of training in a 1660super + 32gb
