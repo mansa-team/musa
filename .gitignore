@@ -1,6 +1,9 @@
 .env
 *.json
-__pycache__
 *.log
 
+__pycache__
+.cache
+
 logun/dataset/data/*
+logun/models/*

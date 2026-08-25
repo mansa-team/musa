@@ -20,6 +20,9 @@ if __name__ == '__main__':
     CACHE = Path(__file__).resolve().parent / "models"
     CACHE.mkdir(parents=True, exist_ok=True)
 
+    DATASET_CACHE = (Path(__file__).resolve().parent / ".cache" / "datasets")
+    DATASET_CACHE.mkdir(parents=True, exist_ok=True)
+
     tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=str(CACHE), use_fast=True)
     model = AutoModelForMaskedLM.from_pretrained(model_name, cache_dir=str(CACHE), device_map="auto", dtype=torch.float16, attn_implementation="sdpa")
     model = torch.compile(model)
@@ -32,7 +35,7 @@ if __name__ == '__main__':
         target_modules=["Wqkv", "Wo", "Wi"]
     ))
 
-    dataset = load_dataset("json", data_files="logun/dataset/data/output/corpus-250M.jsonl")["train"].train_test_split(test_size=0.02, seed=config['seed'])
+    dataset = load_dataset("json", data_files="logun/dataset/data/output/corpus-250M.jsonl", cache_dir=str(DATASET_CACHE))["train"].train_test_split(test_size=0.02, seed=config['seed'])
     tokenized_dataset = dataset.map(
         lambda data: tokenizer(data['text'], truncation=True, max_length=2048),
         batched=True, remove_columns=["text"]
