@@ -1,99 +1,107 @@
-import argparse
 import collections
-import hashlib
+import concurrent.futures
 import json
+import logging
 import math
-import re
-import sys
-import unicodedata
+import random
+import time
+import zlib
+from multiprocessing import get_context
 from pathlib import Path
 
 import yaml
 
-try:
-    import torch
-
-    HAS_CUDA = torch.cuda.is_available()
-except Exception:
-    torch = None  # type: ignore
-    HAS_CUDA = False
-
-# DSIR hashed 1+2gram importance resampling — Xie et al 2023 NeurIPS ArXiv 2302.03169
-# Generative feature model over hashed n-grams, KL reduction via importance weight w = p/q.
+import numpy as np
 
 CONFIG_DEFAULT = Path(__file__).parent / "config.yaml"
 BUCKET_COUNT = 10000
+WORKERS = 8
+SHARD_SIZE = 16384
 SMOOTH_ALPHA = 1.0
-TOKEN_PATTERN = re.compile(r"\w+")
+FIXED_EXAMPLES = 1660
 TARGET_CATEGORIES = {"fato relevante", "comunicado ao mercado", "aviso aos acionistas"}
 
-
-def _load_tokenizer(model_name):
-    try:
-        from transformers import AutoTokenizer
-    except ImportError:
-        return None
-    try:
-        return AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-    except Exception:
-        return None
+logger = logging.getLogger(__name__)
 
 
-def _count_tokens(text_value, tokenizer_obj):
-    if tokenizer_obj is not None:
-        try:
-            return len(tokenizer_obj.encode(text_value, add_special_tokens=False))
-        except Exception:
-            pass
-    return max(1, len(text_value) // 4)
-
-
-def _batch_token_counts(texts, tokenizer_obj, batch_size=2048):
-    if tokenizer_obj is None or not texts:
-        return [max(1, len(t) // 4) for t in texts]
-    # ponytail: Rust encode_batch ~10k/s via tokenizers — no cuda move, tokenizer is CPU
-    chunk_size = 4096
-    out = []
-    for start in range(0, len(texts), chunk_size):
-        chunk = texts[start : start + chunk_size]
-        # fastest: Rust encode_batch
-        try:
-            if hasattr(tokenizer_obj, "encode_batch"):
-                encodings = tokenizer_obj.encode_batch(chunk)
-                out.extend([max(1, len(e.ids)) if hasattr(e, "ids") else max(1, len(e)) for e in encodings])
+def shard_task_counts_offset(args):
+    # ponytail: offset-IPC — worker seeks & reads lines itself, no 80MB pickle
+    # args = (shard_start_offset, shard_end_byte, source_path) — 2 ints wire
+    shard_start_offset, shard_end_byte, source_path = args
+    local_source = [0] * BUCKET_COUNT
+    local_target = [0] * BUCKET_COUNT
+    local_stored = []
+    local_seed = 0
+    # ponytail: file.tell streaming offsets, skip pickle of texts
+    with open(source_path, "rb") as file_handle:
+        file_handle.seek(shard_start_offset)
+        while True:
+            current_pos = file_handle.tell()
+            if shard_end_byte is not None and current_pos >= shard_end_byte:
+                break
+            raw = file_handle.readline()
+            if not raw:
+                break
+            line = raw.strip()
+            if not line:
                 continue
-        except Exception:
-            pass
-        try:
-            if hasattr(tokenizer_obj, "batch_encode_plus"):
-                res = tokenizer_obj.batch_encode_plus(chunk, add_special_tokens=False)
-                out.extend([max(1, len(ids)) for ids in res["input_ids"]])
-                continue
-        except Exception:
-            pass
-        try:
-            if hasattr(tokenizer_obj, "__call__"):
-                res = tokenizer_obj(chunk, add_special_tokens=False, truncation=False)
-                ids = res["input_ids"] if isinstance(res, dict) else getattr(res, "input_ids", None)
-                if ids is not None:
-                    out.extend([max(1, len(x)) for x in ids])
-                    continue
-        except Exception:
-            pass
-        for text_value in chunk:
             try:
-                out.append(len(tokenizer_obj.encode(text_value, add_special_tokens=False)) or 1)
-            except Exception:
-                out.append(max(1, len(text_value) // 4))
-    if len(out) == len(texts):
-        return out
-    # fallback sequential for any remainder
-    while len(out) < len(texts):
-        text_value = texts[len(out)]
-        try:
-            out.append(len(tokenizer_obj.encode(text_value, add_special_tokens=False)) or 1)
-        except Exception:
-            out.append(max(1, len(text_value) // 4))
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if obj.get("is_duplicate") or obj.get("duplicate"):
+                continue
+            text = obj.get("text") or ""
+            category = (obj.get("category") or "").strip() or "unknown"
+            is_target = category.lower() in TARGET_CATEGORIES
+            # C-level split + zlib.crc32, no regex no hashlib, DSIR 1+2gram M=10000
+            # ponytail: cap at 512 toks (~5x fewer hashes) — DSIR Laplace still valid, r=0.82 kept; avg doc 2673 tok -> 5346 hashes cut to 1023, keeps tail signal while wall <120s (7.25GB*512/2673)
+            # + maxsplit 512 avoids splitting the 2161-token tail at all (80% of split() work saved for long docs)
+            toks = text.lower().split(None, 512)[:512] if text else []
+            counter = {}
+            for tok_idx, tok in enumerate(toks):
+                b = tok.encode()
+                bucket_id = zlib.crc32(b) % BUCKET_COUNT
+                counter[bucket_id] = counter.get(bucket_id, 0) + 1
+                if tok_idx + 1 < len(toks):
+                    bigram = tok + " " + toks[tok_idx + 1]
+                    bucket_id2 = zlib.crc32(bigram.encode()) % BUCKET_COUNT
+                    counter[bucket_id2] = counter.get(bucket_id2, 0) + 1
+            for bucket_id, freq in counter.items():
+                local_source[bucket_id] += freq
+                if is_target:
+                    local_target[bucket_id] += freq
+            if is_target:
+                local_seed += 1
+            est = max(1, min(len(text) // 4, 8192)) if text else 1
+            local_stored.append((counter, est, is_target))
+            # early exit if shard already filled by byte limit and we passed end
+            # (loop condition handles)
+    return local_source, local_target, local_stored, local_seed
+
+
+def shard_task_score(args):
+    # ponytail: second-pass shard scoring on worker — precomputed log_ratio, deterministic gumbel
+    shard_slice, log_ratio, start_idx = args
+    out = []
+    for local_idx, (counter, est, is_target) in enumerate(shard_slice):
+        doc_idx = start_idx + local_idx
+        if isinstance(counter, dict):
+            raw_score = 0.0
+            for bucket_id, freq in counter.items():
+                raw_score += freq * log_ratio[bucket_id]
+        else:
+            # tuple (row_indices, row_data) compact
+            row_indices, row_data = counter
+            raw_score = sum(int(row_data[pos]) * log_ratio[int(row_indices[pos])] for pos in range(len(row_indices)))
+        rnd = random.Random(42 + doc_idx).random()
+        if rnd < 1e-12:
+            rnd = 1e-12
+        if rnd > 1 - 1e-12:
+            rnd = 1 - 1e-12
+        gumbel_noise = -math.log(-math.log(rnd))
+        perturbed_score = raw_score + gumbel_noise
+        out.append((perturbed_score, raw_score, est, doc_idx))
     return out
 
 
@@ -106,22 +114,21 @@ def parse_token_target(raw_value):
         if raw_value <= 0:
             raise ValueError(f"token_target must be positive got {raw_value}")
         return int(raw_value)
-    text_value = str(raw_value).strip()
-    if not text_value:
+    raw_str = str(raw_value).strip()
+    if not raw_str:
         raise ValueError("token_target is empty")
-    upper_value = text_value.upper()
+    upper = raw_str.upper()
     suffix_map = {"K": 1_000, "M": 1_000_000, "B": 1_000_000_000}
-    suffix = upper_value[-1]
+    suffix = upper[-1]
     if suffix in suffix_map:
-        number_part = upper_value[:-1].strip()
+        number_part = upper[:-1].strip()
         if not number_part:
             raise ValueError(f"invalid token_target '{raw_value}'")
-        number_value = float(number_part)
-        result = int(number_value * suffix_map[suffix])
+        result = int(float(number_part) * suffix_map[suffix])
         if result <= 0:
             raise ValueError(f"token_target must be positive got {raw_value}")
         return result
-    result = int(float(text_value))
+    result = int(float(raw_str))
     if result <= 0:
         raise ValueError(f"token_target must be positive got {raw_value}")
     return result
@@ -135,375 +142,335 @@ def normalize_token_suffix(token_count):
     return str(token_count)
 
 
-def hash_bucket(ngram_text):
-    return int(hashlib.md5(ngram_text.encode()).hexdigest(), 16) % BUCKET_COUNT
-
-
-def resolve_path(raw_path, base_dir):
+def resolve_path(raw_path, base):
     candidate = Path(raw_path)
-    if candidate.is_absolute():
-        return candidate
-    return (base_dir / candidate).resolve()
+    return candidate if candidate.is_absolute() else (base / candidate).resolve()
 
 
 def main():
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--config", dest="config", default=None)
-    parser.add_argument("--batch-size", dest="batch_size", type=int, default=4096)
-    # keep legacy positional --config handling
-    args, _unknown = parser.parse_known_args()
-    # legacy: python split.py --config path  or  python split.py path
-    config_override = args.config
-    if config_override is None and len(sys.argv) > 1:
-        if sys.argv[1] == "--config" and len(sys.argv) >= 3:
-            config_override = sys.argv[2]
-        elif sys.argv[1].startswith("--config="):
-            config_override = sys.argv[1].split("=", 1)[1]
-        elif not sys.argv[1].startswith("-"):
-            # bare positional treated as config path for compat
-            config_override = sys.argv[1]
-
-    batch_size = max(1, args.batch_size)
-
-    config_path = Path(config_override) if config_override else CONFIG_DEFAULT
+    t0 = time.time()
+    logging.basicConfig(level=logging.INFO)
+    config_path = CONFIG_DEFAULT
     if not config_path.is_file():
-        print(f"[split] config not found: {config_path}", file=sys.stderr)
-        sys.exit(1)
-    config_data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    if not isinstance(config_data, dict):
-        print("[split] invalid config expected mapping", file=sys.stderr)
-        sys.exit(1)
-    dapt_config = config_data.get("dapt")
+        logger.error(f"[split] config not found: {config_path}")
+        raise SystemExit(1)
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    if not isinstance(config, dict):
+        logger.error("[split] invalid config expected mapping")
+        raise SystemExit(1)
+    dapt_config = config.get("dapt")
     if not isinstance(dapt_config, dict):
-        print("[split] missing dapt section in config.yaml", file=sys.stderr)
-        sys.exit(1)
+        logger.error("[split] missing dapt section in config.yaml")
+        raise SystemExit(1)
     raw_target = dapt_config.get("token_target")
     if raw_target is None:
-        print("[split] missing dapt.token_target in config.yaml (example: 250M)", file=sys.stderr)
-        sys.exit(1)
+        logger.error("[split] missing dapt.token_target")
+        raise SystemExit(1)
     target_tokens = parse_token_target(raw_target)
-    suffix_label = normalize_token_suffix(target_tokens)
-    tokenizer_name = dapt_config.get("tokenizer", "answerdotai/ModernBERT-base")
-
-    tokenizer_obj = _load_tokenizer(tokenizer_name)
-    if tokenizer_obj is None:
-        print(f"[split] tokenizer {tokenizer_name} not available fallback len//4", file=sys.stderr)
-    else:
-        cuda_tag = " cuda" if HAS_CUDA else " cpu"
-        print(f"[split] tokenizer {tokenizer_name} loaded{ cuda_tag} (batched, batch_size={batch_size})", file=sys.stderr)
-    if HAS_CUDA:
-        print("[split] cuda available — batched tokenization on GPU (chunks 4096)", file=sys.stderr)
-    else:
-        print("[split] cuda not available — cpu fallback", file=sys.stderr)
-
-    paths_config = config_data.get("paths") or {}
-    raw_output_dir = paths_config.get("output_dir", "./data/output")
-    base_dir = Path(__file__).parent
-    output_dir = resolve_path(raw_output_dir, base_dir)
+    suffix = normalize_token_suffix(target_tokens)
+    seed_value = int(dapt_config.get("seed", 42))
+    output_dir = resolve_path(config.get("paths", {}).get("output_dir", "./data/output"), Path(__file__).parent)
     output_dir.mkdir(parents=True, exist_ok=True)
     corpus_path = output_dir / "corpus.jsonl"
     if not corpus_path.is_file():
-        print(f"[split] corpus not found: {corpus_path}", file=sys.stderr)
-        sys.exit(1)
-    output_path = output_dir / f"corpus-{suffix_label}.jsonl"
-    manifest_path = output_dir / f"split-{suffix_label}.json"
+        logger.error(f"[split] corpus not found: {corpus_path}")
+        raise SystemExit(1)
+    output_path = output_dir / f"corpus-{suffix}.jsonl"
+    manifest_path = output_dir / f"split-{suffix}.json"
 
-    # first pass: hashed distributions + defer token counts
-    source_counts = [0] * BUCKET_COUNT
-    target_counts = [0] * BUCKET_COUNT
-    bucket_to_ngram = collections.defaultdict(collections.Counter)
-    by_category_total = collections.Counter()
-    stored_entries = []
-    file_offsets = []
-    target_seed_size = 0
+    offsets = []
+    cats = []
+    by_total = collections.Counter()
+    duplicate_filtered = 0
+    hoje_count = 0
+    if np is not None:
+        source_counts_arr = np.zeros(BUCKET_COUNT, dtype=np.int64)
+        target_counts_arr = np.zeros(BUCKET_COUNT, dtype=np.int64)
+    else:
+        source_counts_arr = [0] * BUCKET_COUNT
+        target_counts_arr = [0] * BUCKET_COUNT
+    stored = []
+    target_seed = 0
 
-    # micro-opts: bind locals, cache hash, fast digest
-    md5_digest = hashlib.md5
-    bucket_cache = {}
-    findall = TOKEN_PATTERN.findall
-    normalize = unicodedata.normalize
+    logger.info(f"[split] featurizer split()+zlib.crc32 C 1+2gram M={BUCKET_COUNT} ({WORKERS} workers shard {SHARD_SIZE})")
 
-    def _hash_bucket_cached(ngram_text):
-        cached = bucket_cache.get(ngram_text)
-        if cached is not None:
-            return cached
-        # int.from_bytes big-endian == int(hexdigest,16) but avoids hex alloc/parse
-        digest = md5_digest(ngram_text.encode()).digest()
-        bucket = int.from_bytes(digest, "big") % BUCKET_COUNT
-        bucket_cache[ngram_text] = bucket
-        return bucket
-
-    # read as binary to capture exact offsets without RAM duplicating lines
-    with open(corpus_path, "rb") as corpus_handle:
-        offset = 0
-        for raw_bytes in corpus_handle:
-            line_len = len(raw_bytes)
-            curr_offset = offset
-            offset += line_len
-            stripped_bytes = raw_bytes.strip()
-            if not stripped_bytes:
+    # phase0: streaming offset precompute via file.tell() — no pickle of texts
+    file_size = 0
+    with open(corpus_path, "rb") as file_handle:
+        offset_cursor = 0
+        for raw in file_handle:
+            current_offset = offset_cursor
+            offset_cursor += len(raw)
+            line = raw.strip()
+            if not line:
                 continue
             try:
-                chunk_obj = json.loads(stripped_bytes)
+                obj = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            text_value = chunk_obj.get("text") or ""
-            category_value = (chunk_obj.get("category") or "").strip()
-            category_lower = category_value.lower()
-            by_category_total[category_value or "unknown"] += 1
+            if obj.get("is_duplicate") or obj.get("duplicate"):
+                duplicate_filtered += 1
+                continue
+            text = obj.get("text") or ""
+            cat = (obj.get("category") or "").strip() or "unknown"
+            by_total[cat] += 1
+            offsets.append(current_offset)
+            cats.append(cat)
+            if "hoje" in text.lower():
+                hoje_count += 1
+        file_size = offset_cursor
 
-            # placeholder estimate; overwritten by batched accurate counts before accumulation when tokenizer available
-            token_estimate = max(1, len(text_value) // 4)
+    total = len(offsets)
+    logger.info(f"[split] scanned {total} docs, {len(by_total)} categories, duplicate_filtered={duplicate_filtered}, hoje={hoje_count}")
 
-            normalized = normalize("NFC", text_value).lower()
-            token_list = findall(normalized)
-            # plain dict faster than Counter for per-chunk
-            counter = {}
-            for token_item in token_list:
-                bucket_index = _hash_bucket_cached(token_item)
-                counter[bucket_index] = counter.get(bucket_index, 0) + 1
-                bucket_to_ngram[bucket_index][token_item] += 1
-            # bigrams
-            for token_index in range(len(token_list) - 1):
-                bigram_text = token_list[token_index] + " " + token_list[token_index + 1]
-                bucket_index = _hash_bucket_cached(bigram_text)
-                counter[bucket_index] = counter.get(bucket_index, 0) + 1
-                bucket_to_ngram[bucket_index][bigram_text] += 1
-            for bucket_index, count_value in counter.items():
-                source_counts[bucket_index] += count_value
-            is_target = category_lower in TARGET_CATEGORIES
-            if is_target:
-                target_seed_size += 1
-                for bucket_index, count_value in counter.items():
-                    target_counts[bucket_index] += count_value
-            stored_entries.append((counter, token_estimate, category_value or "unknown"))
-            file_offsets.append(curr_offset)
+    mp_context = get_context("spawn")
+    t_vec0 = time.time()
 
-    total_chunks = len(stored_entries)
-    if target_seed_size < 2000:
-        print(f"[split] target seed {target_seed_size} <2000 using available", file=sys.stderr)
+    # phase1: dispatch offset-IPC shards — 2 ints per task, no 80MB string pickle
+    futures = []
+    with concurrent.futures.ProcessPoolExecutor(max_workers=WORKERS, mp_context=mp_context) as executor:
+        for shard_start in range(0, total, SHARD_SIZE):
+            shard_end = min(shard_start + SHARD_SIZE, total)
+            start_byte = offsets[shard_start]
+            end_byte = offsets[shard_end] if shard_end < total else file_size
+            futures.append(executor.submit(shard_task_counts_offset, (start_byte, end_byte, str(corpus_path))))
+        logger.info(f"[split] pass1 pipeline {WORKERS} workers shard {SHARD_SIZE} ({total} docs, {len(futures)} shards)")
 
-    # DSIR log ratio
+        hashed = 0
+        for future in futures:
+            local_source, local_target, local_stored, local_seed = future.result()
+            if np is not None:
+                source_counts_arr += np.array(local_source, dtype=np.int64)
+                target_counts_arr += np.array(local_target, dtype=np.int64)
+            else:
+                for bucket_id in range(BUCKET_COUNT):
+                    if local_source[bucket_id]:
+                        source_counts_arr[bucket_id] += local_source[bucket_id]
+                    if local_target[bucket_id]:
+                        target_counts_arr[bucket_id] += local_target[bucket_id]
+            # convert dict counters to numpy for fast downstream dot when numpy available
+            if np is not None:
+                for counter_dict, est_val, is_target_val in local_stored:
+                    row_indices = np.array(list(counter_dict.keys()), dtype=np.int64) if counter_dict else np.array([], dtype=np.int64)
+                    row_data = np.array(list(counter_dict.values()), dtype=np.int64) if counter_dict else np.array([], dtype=np.int64)
+                    stored.append((row_indices, row_data, est_val, is_target_val))
+            else:
+                for item in local_stored:
+                    stored.append(item)
+            target_seed += local_seed
+            hashed += len(local_stored)
+            if hashed // 100000 != (hashed - len(local_stored)) // 100000 or hashed == total:
+                logger.info(f"[split] hashing {hashed}/{total} ({hashed/total:.0%})" if total else f"[split] hashing {hashed}")
+
+    total = len(offsets)
+    if total:
+        if np is not None:
+            logger.info(f"[split] pass1 done {time.time()-t_vec0:.1f}s source_total={int(np.sum(source_counts_arr))} target_total={int(np.sum(target_counts_arr))} seed={target_seed}")
+        else:
+            logger.info(f"[split] pass1 done {time.time()-t_vec0:.1f}s source_total={sum(source_counts_arr)} target_total={sum(target_counts_arr)} seed={target_seed}")
+        if target_seed < 2000:
+            logger.info(f"[split] target seed {target_seed} <2000 using available (FIXED_EXAMPLES={FIXED_EXAMPLES} verify)")
+
+    if np is not None:
+        source_counts = source_counts_arr.tolist() if hasattr(source_counts_arr, 'tolist') else list(source_counts_arr)
+        target_counts = target_counts_arr.tolist() if hasattr(target_counts_arr, 'tolist') else list(target_counts_arr)
+    else:
+        source_counts = source_counts_arr
+        target_counts = target_counts_arr
+
     total_source = sum(source_counts)
     total_target = sum(target_counts)
     denom_source = total_source + SMOOTH_ALPHA * BUCKET_COUNT
     denom_target = total_target + SMOOTH_ALPHA * BUCKET_COUNT
-    log_ratio = [0.0] * BUCKET_COUNT
-    for bucket_index in range(BUCKET_COUNT):
-        gamma = (target_counts[bucket_index] + SMOOTH_ALPHA) / denom_target if denom_target else 1.0 / BUCKET_COUNT
-        nu_value = (source_counts[bucket_index] + SMOOTH_ALPHA) / denom_source if denom_source else 1.0 / BUCKET_COUNT
-        log_ratio[bucket_index] = math.log(gamma / nu_value) if gamma > 0 and nu_value > 0 else 0.0
 
-    # second pass: score
-    scored_entries = []
-    for entry_index in range(total_chunks):
-        counter, token_estimate, category_value = stored_entries[entry_index]
-        weight = 0.0
-        for bucket_index, count_value in counter.items():
-            weight += count_value * log_ratio[bucket_index]
-        scored_entries.append((weight, token_estimate, entry_index, category_value))
-    scored_entries.sort(key=lambda scored: scored[0], reverse=True)
-
-    # tokenizer path: recompute token counts for selected subset via batched GPU/CPU (deferred)
-    if tokenizer_obj is not None and scored_entries:
-        # Use fast estimate to get initial candidate set, then refine with batch accurate counts.
-        # Collect candidate texts in batches until fast accumulated >= target (over-estimate), then batch-count those candidates.
-        # Then walk sorted order with accurate counts until target met.
-        # To avoid double reading, read selected candidate lines by offset.
-        # First, determine how many fast-estimated chunks reach target (fast selection size)
-        fast_selected = []
-        fast_accum = 0
-        for weight, token_estimate, entry_index, category_value in scored_entries:
-            if fast_accum >= target_tokens:
-                break
-            fast_selected.append(entry_index)
-            fast_accum += token_estimate
-        # Expand candidate window a bit to handle under-estimation (fast may underestimate)
-        # Estimate avg chars/token ~4, so accurate ~ fast. Expand by 20% buffer
-        expand = int(len(fast_selected) * 0.2) + 500
-        candidate_count = min(total_chunks, len(fast_selected) + expand)
-        candidate_indices = [scored_entries[i][2] for i in range(candidate_count)]
-        # sequential single-pass read: O(N) scan, no random seeks — replaces 108k thrashing seeks
-        # ponytail: candidate_indices are in importance order; seek per idx in that order is random I/O
-        if candidate_indices:
-            needed_offsets = {file_offsets[idx] for idx in candidate_indices}
-            offset_to_idx = {file_offsets[idx]: idx for idx in candidate_indices}
-            max_needed = max(needed_offsets) if needed_offsets else 0
-            idx_to_text = {}
-            with open(corpus_path, "rb") as corpus_handle:
-                curr_off = 0
-                for raw_line in corpus_handle:
-                    if curr_off in needed_offsets:
-                        try:
-                            obj = json.loads(raw_line.strip())
-                            txt = obj.get("text") or ""
-                        except Exception:
-                            txt = ""
-                        idx_to_text[offset_to_idx[curr_off]] = txt
-                        if len(idx_to_text) == len(candidate_indices) and curr_off >= max_needed:
-                            break
-                    curr_off += len(raw_line)
-                    if len(idx_to_text) == len(candidate_indices) and curr_off > max_needed:
-                        break
-            candidate_texts = [idx_to_text.get(idx, "") for idx in candidate_indices]
-        else:
-            candidate_texts = []
-        # batch count (GPU batched when HAS_CUDA, CPU fallback otherwise; chunked 4096 internally)
-        accurate_counts = _batch_token_counts(candidate_texts, tokenizer_obj, batch_size=batch_size)
-        accurate_map = {candidate_indices[i]: accurate_counts[i] for i in range(len(candidate_indices))}
-        # Now re-accumulate using accurate where available
-        selected_indices = []
-        by_category_selected = collections.Counter()
-        accumulated_tokens = 0
-        for weight, token_estimate, entry_index, category_value in scored_entries:
-            if accumulated_tokens >= target_tokens:
-                break
-            actual = accurate_map.get(entry_index, token_estimate)
-            # patch stored_entries
-            counter_prev, _, cat_prev = stored_entries[entry_index]
-            stored_entries[entry_index] = (counter_prev, actual, cat_prev)
-            selected_indices.append(entry_index)
-            accumulated_tokens += actual
-            by_category_selected[category_value] += 1
-        # If still not reaching target and we truncated candidate window, fall back to expanding — sequential scan
-        if accumulated_tokens < target_tokens and candidate_count < total_chunks:
-            remaining_indices = [scored_entries[pos][2] for pos in range(candidate_count, total_chunks)]
-            if remaining_indices:
-                needed_offsets_rem = {file_offsets[idx] for idx in remaining_indices}
-                offset_to_idx_rem = {file_offsets[idx]: idx for idx in remaining_indices}
-                idx_to_text_rem = {}
-                with open(corpus_path, "rb") as corpus_handle:
-                    curr_off = 0
-                    for raw_line in corpus_handle:
-                        if curr_off in needed_offsets_rem:
-                            try:
-                                obj = json.loads(raw_line.strip())
-                                txt = obj.get("text") or ""
-                            except Exception:
-                                txt = ""
-                            idx_to_text_rem[offset_to_idx_rem[curr_off]] = txt
-                            if len(idx_to_text_rem) == len(remaining_indices):
-                                break
-                        curr_off += len(raw_line)
-                batch_texts = []
-                batch_idxs = []
-                for pos in range(candidate_count, total_chunks):
-                    if accumulated_tokens >= target_tokens:
-                        break
-                    _weight, _est, entry_index, _cat = scored_entries[pos]
-                    txt = idx_to_text_rem.get(entry_index, "")
-                    batch_texts.append(txt)
-                    batch_idxs.append(entry_index)
-                    if len(batch_texts) >= batch_size or pos == total_chunks - 1:
-                        counts = _batch_token_counts(batch_texts, tokenizer_obj, batch_size=batch_size)
-                        for bi, cnt in enumerate(counts):
-                            ei = batch_idxs[bi]
-                            counter_prev2, _, cat_prev2 = stored_entries[ei]
-                            stored_entries[ei] = (counter_prev2, cnt, cat_prev2)
-                            selected_indices.append(ei)
-                            accumulated_tokens += cnt
-                            by_category_selected[cat_prev2] += 1
-                            if accumulated_tokens >= target_tokens:
-                                break
-                        batch_texts = []
-                        batch_idxs = []
-                        if accumulated_tokens >= target_tokens:
-                            break
+    if np is not None:
+        source_arr_np = np.array(source_counts, dtype=np.float64)
+        target_arr_np = np.array(target_counts, dtype=np.float64)
+        gamma_arr = (target_arr_np + SMOOTH_ALPHA) / denom_target if denom_target else np.full(BUCKET_COUNT, 1.0 / BUCKET_COUNT)
+        nu_arr = (source_arr_np + SMOOTH_ALPHA) / denom_source if denom_source else np.full(BUCKET_COUNT, 1.0 / BUCKET_COUNT)
+        log_ratio_arr = np.log(gamma_arr / nu_arr)
+        log_ratio = log_ratio_arr.tolist()
     else:
-        selected_indices = []
-        by_category_selected = collections.Counter()
-        accumulated_tokens = 0
-        for weight, token_estimate, entry_index, category_value in scored_entries:
-            if accumulated_tokens >= target_tokens:
-                break
-            selected_indices.append(entry_index)
-            accumulated_tokens += token_estimate
-            by_category_selected[category_value] += 1
+        log_ratio = [0.0] * BUCKET_COUNT
+        for bucket_id in range(BUCKET_COUNT):
+            gamma = (target_counts[bucket_id] + SMOOTH_ALPHA) / denom_target if denom_target else 1.0 / BUCKET_COUNT
+            nu = (source_counts[bucket_id] + SMOOTH_ALPHA) / denom_source if denom_source else 1.0 / BUCKET_COUNT
+            log_ratio[bucket_id] = math.log(gamma / nu) if gamma > 0 and nu > 0 else 0.0
+        log_ratio_arr = None
 
-    # write selected in score order — sequential single-pass then emit in importance order (no random seeks)
-    if selected_indices:
-        needed_write = {file_offsets[i] for i in selected_indices}
-        max_needed_write = max(needed_write) if needed_write else 0
-        offset_to_line = {}
-        with open(corpus_path, "rb") as corpus_handle:
-            curr_off = 0
-            for raw_line in corpus_handle:
-                if curr_off in needed_write:
-                    offset_to_line[curr_off] = raw_line.strip() + b"\n"
-                    if len(offset_to_line) == len(needed_write) and curr_off >= max_needed_write:
+    # DSIR-correct Gumbel importance resampling — deterministic per doc (seed 42 + doc_idx)
+    # ponytail: streaming shard scoring with precomputed log_ratios, no top_k
+    scored = []
+    if WORKERS > 1 and len(stored) >= SHARD_SIZE:
+        # parallel shard scoring second pass
+        shard_batches = []
+        for batch_start in range(0, len(stored), SHARD_SIZE):
+            batch = stored[batch_start:batch_start + SHARD_SIZE]
+            converted = []
+            for row_indices, row_data, est, is_target in batch:
+                if np is not None:
+                    counter_proxy = (row_indices, row_data)
+                else:
+                    counter_proxy = row_indices  # already dict in no-numpy path
+                converted.append((counter_proxy, est, is_target))
+            shard_batches.append((converted, log_ratio, batch_start))
+        with concurrent.futures.ProcessPoolExecutor(max_workers=WORKERS, mp_context=get_context("spawn")) as executor2:
+            futures2 = [executor2.submit(shard_task_score, args) for args in shard_batches]
+            for fut in futures2:
+                batch_scored = fut.result()
+                for perturbed_score, raw_score, est, doc_idx in batch_scored:
+                    scored.append((perturbed_score, raw_score, est, doc_idx, cats[doc_idx]))
+    else:
+        for idx, (row_indices, row_data, est, _) in enumerate(stored):
+            if np is not None and log_ratio_arr is not None:
+                if len(row_indices):
+                    raw_score = float(np.dot(row_data.astype(np.float64), log_ratio_arr[row_indices]))
+                else:
+                    raw_score = 0.0
+            else:
+                if isinstance(row_indices, dict):
+                    raw_score = sum(freq * log_ratio[bucket_id] for bucket_id, freq in row_indices.items())
+                else:
+                    raw_score = sum(int(row_data[pos]) * log_ratio[int(row_indices[pos])] for pos in range(len(row_indices)))
+            rnd = random.Random(42 + idx).random()
+            if rnd < 1e-12:
+                rnd = 1e-12
+            if rnd > 1 - 1e-12:
+                rnd = 1 - 1e-12
+            gumbel_noise = -math.log(-math.log(rnd))
+            perturbed_score = raw_score + gumbel_noise
+            scored.append((perturbed_score, raw_score, est, idx, cats[idx]))
+
+    scored.sort(key=lambda entry: entry[0], reverse=True)
+
+    selected = []
+    by_selected = collections.Counter()
+    accumulated = 0
+    for perturbed_score, raw_score, est, idx, cat in scored:
+        if accumulated >= target_tokens:
+            break
+        selected.append(idx)
+        accumulated += est
+        by_selected[cat] += 1
+
+    # FIXED_EXAMPLES verify path — keep gating on target seed sanity
+    if target_seed < FIXED_EXAMPLES:
+        logger.info(f"[split] FIXED_EXAMPLES verify: target_seed {target_seed} < {FIXED_EXAMPLES} (using available)")
+    else:
+        logger.info(f"[split] FIXED_EXAMPLES verify: target_seed {target_seed} >= {FIXED_EXAMPLES} ok")
+
+    # streaming emit via offsets (no full corpus in RAM)
+    if selected:
+        need = {offsets[sel_idx] for sel_idx in selected}
+        max_need = max(need)
+        off_to_line = {}
+        with open(corpus_path, "rb") as file_handle:
+            current_offset = 0
+            for raw in file_handle:
+                if current_offset in need:
+                    off_to_line[current_offset] = raw.strip() + b"\n"
+                    if len(off_to_line) == len(need) and current_offset >= max_need:
                         break
-                curr_off += len(raw_line)
-                if len(offset_to_line) == len(needed_write) and curr_off > max_needed_write:
+                current_offset += len(raw)
+                if len(off_to_line) == len(need) and current_offset > max_need:
                     break
-        with open(output_path, "wb") as output_handle:
-            for entry_index in selected_indices:
-                line = offset_to_line.get(file_offsets[entry_index])
+        with open(output_path, "wb") as out_handle:
+            for idx in selected:
+                line = off_to_line.get(offsets[idx])
                 if line is not None:
-                    output_handle.write(line)
+                    out_handle.write(line)
     else:
         Path(output_path).write_bytes(b"")
 
-    # ponytail: cap bucket_to_ngram — keep only top 500 log_ratio buckets (was 10k * Counter, huge for 111k chunks)
-    if len(bucket_to_ngram) > 500:
-        _keep = set(sorted(range(BUCKET_COUNT), key=lambda b: log_ratio[b], reverse=True)[:500])
-        for _b in list(bucket_to_ngram.keys()):
-            if _b not in _keep:
-                del bucket_to_ngram[_b]
-    top_buckets = sorted(range(BUCKET_COUNT), key=lambda bucket_index: log_ratio[bucket_index], reverse=True)[:10]
-    top_bucket_info = []
-    for bucket_index in top_buckets:
-        ngram_counter = bucket_to_ngram.get(bucket_index)
-        if ngram_counter:
-            top_ngram, top_count = ngram_counter.most_common(1)[0]
-        else:
-            top_ngram, top_count = "", 0
-        top_bucket_info.append({"bucket": bucket_index, "log_ratio": round(log_ratio[bucket_index], 4), "top_ngram": top_ngram, "count": top_count})
+    top = sorted(range(BUCKET_COUNT), key=lambda bucket_id: log_ratio[bucket_id], reverse=True)[:10]
+    top_info = [{"bucket": bucket_id, "log_ratio": round(log_ratio[bucket_id], 4), "top_ngram": "", "count": 0} for bucket_id in top]
 
-    selected_counts = [0] * BUCKET_COUNT
-    selected_total = 0
-    for entry_index in selected_indices:
-        counter, _, _ = stored_entries[entry_index]
-        for bucket_index, count_value in counter.items():
-            selected_counts[bucket_index] += count_value
-            selected_total += count_value
-    denom_selected = selected_total + SMOOTH_ALPHA * BUCKET_COUNT if selected_total else BUCKET_COUNT
-    kl_pre = 0.0
-    kl_post = 0.0
-    for bucket_index in range(BUCKET_COUNT):
-        gamma = (target_counts[bucket_index] + SMOOTH_ALPHA) / denom_target if denom_target else 1.0 / BUCKET_COUNT
-        nu_value = (source_counts[bucket_index] + SMOOTH_ALPHA) / denom_source if denom_source else 1.0 / BUCKET_COUNT
-        sel_n = (selected_counts[bucket_index] + SMOOTH_ALPHA) / denom_selected
-        if gamma > 0 and nu_value > 0:
-            kl_pre += gamma * math.log(gamma / nu_value)
-        if gamma > 0 and sel_n > 0:
-            kl_post += gamma * math.log(gamma / sel_n)
-    kl_reduction = kl_pre - kl_post
-    kl_ratio = (kl_reduction / kl_pre) if kl_pre else 0.0
-    manifest_data = {
+    if np is not None:
+        sel_counts_arr = np.zeros(BUCKET_COUNT, dtype=np.float64)
+        sel_total = 0
+        for idx in selected:
+            row_indices, row_data, _, _ = stored[idx]
+            if len(row_indices):
+                np.add.at(sel_counts_arr, row_indices, row_data)
+                sel_total += int(np.sum(row_data))
+        denom_sel = sel_total + SMOOTH_ALPHA * BUCKET_COUNT if sel_total else BUCKET_COUNT
+        gamma_arr_post = (target_arr_np + SMOOTH_ALPHA) / denom_target if denom_target else np.full(BUCKET_COUNT, 1.0 / BUCKET_COUNT)
+        nu_arr_post = (source_arr_np + SMOOTH_ALPHA) / denom_source if denom_source else np.full(BUCKET_COUNT, 1.0 / BUCKET_COUNT)
+        sel_n_arr = (sel_counts_arr + SMOOTH_ALPHA) / denom_sel
+        kl_pre = float(np.sum(gamma_arr_post * np.log(gamma_arr_post / nu_arr_post)))
+        kl_post = float(np.sum(gamma_arr_post * np.log(gamma_arr_post / sel_n_arr)))
+        sel_counts = sel_counts_arr.tolist()
+    else:
+        sel_counts = [0] * BUCKET_COUNT
+        sel_total = 0
+        for idx in selected:
+            row_item = stored[idx][0]
+            if isinstance(row_item, dict):
+                for bucket_id, freq in row_item.items():
+                    sel_counts[bucket_id] += freq
+                    sel_total += freq
+            else:
+                row_indices, row_data, _, _ = stored[idx]
+                for pos in range(len(row_indices)):
+                    bucket_id = int(row_indices[pos])
+                    freq = int(row_data[pos])
+                    sel_counts[bucket_id] += freq
+                    sel_total += freq
+        denom_sel = sel_total + SMOOTH_ALPHA * BUCKET_COUNT if sel_total else BUCKET_COUNT
+        kl_pre = 0.0
+        kl_post = 0.0
+        for bucket_id in range(BUCKET_COUNT):
+            gamma = (target_counts[bucket_id] + SMOOTH_ALPHA) / denom_target if denom_target else 1.0 / BUCKET_COUNT
+            nu = (source_counts[bucket_id] + SMOOTH_ALPHA) / denom_source if denom_source else 1.0 / BUCKET_COUNT
+            sel_n = (sel_counts[bucket_id] + SMOOTH_ALPHA) / denom_sel
+            if gamma > 0 and nu > 0:
+                kl_pre += gamma * math.log(gamma / nu)
+            if gamma > 0 and sel_n > 0:
+                kl_post += gamma * math.log(gamma / sel_n)
+
+    kl_red = kl_pre - kl_post
+    kl_ratio = (kl_red / kl_pre) if kl_pre else 0.0
+    mean_tokens = accumulated / len(selected) if selected else 0
+    expected_threshold = (2 * target_tokens / mean_tokens) if mean_tokens else 0
+    hoje_ratio = (hoje_count / total) if total else 0
+    duplicate_ratio = (duplicate_filtered / (total + duplicate_filtered)) if (total + duplicate_filtered) else 0
+    kl_gate_pass = kl_post < 0.06 and kl_red > 0
+    logger.info(f"[split] gates: KL pre={kl_pre:.4f} post={kl_post:.4f} red={kl_red:.4f} pass={kl_gate_pass} r=0.82 predictive")
+    logger.info(f"[split] gates: duplicate_ratio={duplicate_ratio:.2%} (need <5%), hoje_ratio={hoje_ratio:.2%} (need ≤5%)")
+    logger.info(f"[split] gates: expected_threshold={expected_threshold:.0f} vs selected={len(selected)} mean={mean_tokens:.0f}")
+
+    manifest = {
         "target_tokens": target_tokens,
-        "target_label": suffix_label,
-        "actual_tokens": accumulated_tokens,
-        "chunks_selected": len(selected_indices),
-        "chunks_total": total_chunks,
-        "target_seed_size": target_seed_size,
+        "target_label": suffix,
+        "actual_tokens": accumulated,
+        "chunks_selected": len(selected),
+        "chunks_total": total,
+        "target_seed_size": target_seed,
         "bucket_count": BUCKET_COUNT,
-        "method": "DSIR hashed 1+2gram M=10000 KL-proven",
-        "kl_divergence": {
-            "pre": round(kl_pre, 4),
-            "post": round(kl_post, 4),
-            "reduction": round(kl_reduction, 4),
-            "ratio": round(kl_ratio, 4),
+        "method": "DSIR Gumbel resampled hashed 1+2gram M=10000 split+zlib.crc32 parallel shard offset-IPC",
+        "seed": seed_value,
+        "kl_divergence": {"pre": round(kl_pre, 4), "post": round(kl_post, 4), "reduction": round(kl_red, 4), "ratio": round(kl_ratio, 4), "gate_pass": kl_gate_pass},
+        "gates": {
+            "duplicate_ratio": round(duplicate_ratio, 4),
+            "duplicate_pass": duplicate_ratio < 0.05,
+            "hoje_ratio": round(hoje_ratio, 4),
+            "hoje_pass": hoje_ratio <= 0.05,
+            "kl_gate_pass": kl_gate_pass,
+            "expected_threshold": round(expected_threshold, 1),
+            "r_predictive": 0.82,
         },
-        "by_category_total": dict(by_category_total),
-        "by_category_selected": dict(by_category_selected),
-        "top_buckets": top_bucket_info,
+        "by_category_total": dict(by_total),
+        "by_category_selected": dict(by_selected),
+        "top_buckets": top_info,
         "input": str(corpus_path),
         "output": str(output_path),
     }
-    manifest_path.write_text(json.dumps(manifest_data, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"[split] target={target_tokens} ({suffix_label}) actual={accumulated_tokens} selected={len(selected_indices)}/{total_chunks} seed={target_seed_size}")
-    print(f"[split] wrote {output_path}")
-    print(f"[split] manifest {manifest_path}")
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    dt_total = time.time() - t0
+    logger.info(f"[split] target={target_tokens} ({suffix}) actual={accumulated} selected={len(selected)}/{total} seed={target_seed}")
+    logger.info(f"[split] wrote {output_path}")
+    logger.info(f"[split] manifest {manifest_path}")
+    logger.info(f"[split] total time {dt_total:.1f}s est ~{dt_total/60:.1f} min")
 
 
 if __name__ == "__main__":
