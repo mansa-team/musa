@@ -60,6 +60,7 @@ args = TrainingArguments(
 collator = DataCollatorForLanguageModeling(tokenizer, mlm=True, mlm_probability=0.15)
 trainer = Trainer(model=model, args=args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator)
 
-trainer.train(resume_from_checkpoint=True)
+trainer.train(resume_from_checkpoint=True) # set to false for the first run
 trainer.save(str(CACHE / checkpoint_name))
+
 # about 2 days of training in a 1660super + 32gb
