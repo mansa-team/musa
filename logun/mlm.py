@@ -17,7 +17,7 @@ CACHE = Path(__file__).resolve().parent / "models"
 CACHE.mkdir(parents=True, exist_ok=True)
 
 tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=str(CACHE), use_fast=True)
-model = AutoModelForMaskedLM.from_pretrained(model_name, cache_dir=str(CACHE), device_map="auto", torch_dtype=torch.float16)
+model = AutoModelForMaskedLM.from_pretrained(model_name, cache_dir=str(CACHE), device_map="auto", dtype=torch.float16)
 
 model = get_peft_model(model, LoraConfig(
     task_type=TaskType.TOKEN_CLS,
@@ -46,7 +46,7 @@ args = TrainingArguments(
     weight_decay=0.01, adam_beta1=0.9, adam_beta2=0.95, # adamw_torch_fused
 
     fp16=True,
-    fp16=True,
+    bf16=False,
     tf32=False,
     seed=config['seed'],
 
