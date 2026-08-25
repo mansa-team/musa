@@ -1,3 +1,4 @@
+from multiprocessing import freeze_support
 from datetime import datetime
 from pathlib import Path
 import yaml
@@ -10,60 +11,63 @@ from peft import LoraConfig, get_peft_model, TaskType
 model_name = 'Itau-Unibanco/NorBERTo-base'
 checkpoint_name = f'logun-base-{datetime.now().date()}-mlm'
 
-config = Path(__file__).resolve().parent / "config.yaml"
-config = yaml.safe_load(config.read_text(encoding="utf-8"))
+if __name__ == '__main__':
+    freeze_support()
 
-CACHE = Path(__file__).resolve().parent / "models"
-CACHE.mkdir(parents=True, exist_ok=True)
+    config = Path(__file__).resolve().parent / "config.yaml"
+    config = yaml.safe_load(config.read_text(encoding="utf-8"))
 
-tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=str(CACHE), use_fast=True)
-model = AutoModelForMaskedLM.from_pretrained(model_name, cache_dir=str(CACHE), device_map="auto", dtype=torch.float16, attn_implementation="sdpa")
-model = torch.compile(model)
+    CACHE = Path(__file__).resolve().parent / "models"
+    CACHE.mkdir(parents=True, exist_ok=True)
 
-model = get_peft_model(model, LoraConfig(
-    task_type=TaskType.TOKEN_CLS,
-    r=16,
-    lora_alpha=32,
-    lora_dropout=0.05,
-    target_modules=["Wqkv","Wo","Wi"]
-))
+    tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=str(CACHE), use_fast=True)
+    model = AutoModelForMaskedLM.from_pretrained(model_name, cache_dir=str(CACHE), device_map="auto", dtype=torch.float16, attn_implementation="sdpa")
+    model = torch.compile(model)
 
-dataset = load_dataset("json", data_files="logun/dataset/data/output/corpus-250M.jsonl")["train"].train_test_split(test_size=0.02, seed=config['seed'])
-tokenized_dataset = dataset.map(
-    lambda data: tokenizer(data['text'], truncation=True, max_length=2048),
-    batched=True, remove_columns=["text"]
-)
+    model = get_peft_model(model, LoraConfig(
+        task_type=TaskType.TOKEN_CLS,
+        r=16,
+        lora_alpha=32,
+        lora_dropout=0.05,
+        target_modules=["Wqkv", "Wo", "Wi"]
+    ))
 
-args = TrainingArguments(
-    output_dir=str(CACHE / checkpoint_name),
+    dataset = load_dataset("json", data_files="logun/dataset/data/output/corpus-250M.jsonl")["train"].train_test_split(test_size=0.02, seed=config['seed'])
+    tokenized_dataset = dataset.map(
+        lambda data: tokenizer(data['text'], truncation=True, max_length=2048),
+        batched=True, remove_columns=["text"]
+    )
 
-    per_device_train_batch_size=4,  # 4x2048 = 8k tokens/forward
-    per_device_eval_batch_size=8,   # 8x2048 = 16k tokens/forward (no grad)
-    gradient_accumulation_steps=8,  # 4*8=32 -> 32*2048 = 65k tok/step
-    num_train_epochs=1.5,           # ~5.7k steps (250M / 65k) ~8h at ~5s/it, not 8.6k/262k
+    args = TrainingArguments(
+        output_dir=str(CACHE / checkpoint_name),
 
-    optim="adamw_torch_fused",
-    learning_rate=0.00005, warmup_steps=500,
-    weight_decay=0.01, adam_beta1=0.9, adam_beta2=0.95,
-    
-    fp16=True, bf16=False, tf32=False,
-    gradient_checkpointing=True,
-    seed=config['seed'],
+        per_device_train_batch_size=4,  # 4x2048 = 8k tokens/forward
+        per_device_eval_batch_size=8,   # 8x2048 = 16k tokens/forward (no grad)
+        gradient_accumulation_steps=8,  # 4*8=32 -> 32*2048 = 65k tok/step
+        num_train_epochs=1.5,           # ~5.7k steps (250M / 65k) ~8h at ~5s/it, not 8.6k/262k
 
-    logging_steps=50,
-    eval_strategy="steps", eval_steps=500,
-    save_steps=500, save_total_limit=2,
+        optim="adamw_torch_fused",
+        learning_rate=0.00005, warmup_steps=500,
+        weight_decay=0.01, adam_beta1=0.9, adam_beta2=0.95,
 
-    dataloader_num_workers=4,
-    dataloader_pin_memory=True,
-    remove_unused_columns=False
-)
+        fp16=True, bf16=False, tf32=False,
+        gradient_checkpointing=True,
+        seed=config['seed'],
 
-collator = DataCollatorForLanguageModeling(tokenizer, mlm=True, mlm_probability=0.15)
-trainer = Trainer(model=model, args=args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator)
+        logging_steps=50,
+        eval_strategy="steps", eval_steps=500,
+        save_steps=500, save_total_limit=2,
 
-trainer.train(resume_from_checkpoint=False) # set to false for the first run
-trainer.save(str(CACHE / checkpoint_name))
-tokenizer.save_pretrained(str(CACHE / checkpoint_name))
+        dataloader_num_workers=4,
+        dataloader_pin_memory=True,
+        remove_unused_columns=False
+    )
 
-# about 2 days of training in a 1660super + 32gb
+    collator = DataCollatorForLanguageModeling(tokenizer, mlm=True, mlm_probability=0.15)
+    trainer = Trainer(model=model, args=args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator)
+
+    trainer.train(resume_from_checkpoint=False)  # set to false for the first run
+    trainer.save(str(CACHE / checkpoint_name))
+    tokenizer.save_pretrained(str(CACHE / checkpoint_name))
+
+    # about 2 days of training in a 1660super + 32gb
