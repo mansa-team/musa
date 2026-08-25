@@ -25,7 +25,7 @@ model = get_peft_model(model, LoraConfig(
     r=16,
     lora_alpha=32,
     lora_dropout=0.05,
-    target_modules=["query","key","value","dense"]
+    target_modules=["Wqkv","Wo","Wi"]
 ))
 
 dataset = load_dataset("json", data_files="logun/dataset/data/output/corpus-250M.jsonl")["train"].train_test_split(test_size=0.02, seed=config['seed'])
