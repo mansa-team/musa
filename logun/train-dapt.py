@@ -6,6 +6,7 @@ import yaml
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForMaskedLM, DataCollatorForLanguageModeling, TrainingArguments, Trainer
 from peft import LoraConfig, get_peft_model, TaskType
+import torch
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -23,7 +24,7 @@ DATASET_CACHE = CACHE / "datasets"
 DATASET_CACHE.mkdir(parents=True, exist_ok=True)
 
 tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=str(CACHE), use_fast=True)
-model = AutoModelForMaskedLM.from_pretrained(model_name, cache_dir=str(CACHE), trust_remote_code=True)
+model = AutoModelForMaskedLM.from_pretrained(model_name, cache_dir=str(CACHE), trust_remote_code=True, dtype=torch.bfloat16)
 
 model = get_peft_model(model, LoraConfig(
     task_type=TaskType.TOKEN_CLS,
@@ -42,18 +43,16 @@ tokenized_dataset = dataset.map(
 args = TrainingArguments(
     output_dir=str(CACHE / checkpoint_name),
 
-    per_device_train_batch_size=4,  # 4x8192 tokens ~3.2gb
-    per_device_eval_batch_size=8,   # eval has no gradient, so 2x
-    gradient_accumulation_steps=8,  # 4x8=32 -> 32x8192=~262ktok/step
+    per_device_train_batch_size=2,  # 2×8192 ~7GB fp16; 4 OOMs at 8192
+    per_device_eval_batch_size=4,   # no grad
+    gradient_accumulation_steps=16, # 2×16=32 keeps your 262k tok/step
     num_train_epochs=1.5,           # 250M sweet spot 1.5 pass, not 3 (overfit KL 0.053)
 
     optim="adamw_torch_fused",
     learning_rate=0.00005, warmup_steps=500,
     weight_decay=0.01, adam_beta1=0.9, adam_beta2=0.95, # adamw_torch_fused
 
-    fp16=True,
-    bf16=False,
-    tf32=False,
+    bf16=True, # T4 optimized
     seed=config['seed'],
 
     logging_steps=50,
