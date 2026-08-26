@@ -51,9 +51,6 @@ args = TrainingArguments(
     learning_rate=0.00005, warmup_steps=500,
     weight_decay=0.01, adam_beta1=0.9, adam_beta2=0.95, # adamw_torch_fused
 
-    fp16=True,
-    bf16=False,
-    tf32=False,
     seed=config['seed'],
 
     logging_steps=50,
