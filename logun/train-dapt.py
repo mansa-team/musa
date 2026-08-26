@@ -71,5 +71,5 @@ args = TrainingArguments(
 collator = DataCollatorForLanguageModeling(tokenizer, mlm=True, mlm_probability=0.15)
 trainer = Trainer(model=model, args=args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator)
 
-trainer.train(resume_from_checkpoint=False) # set to false for the first run
+trainer.train(resume_from_checkpoint=False) # use --resume if checkpoint is avaliable
 trainer.save(str(CACHE / checkpoint_name))
