@@ -88,6 +88,8 @@ https://arxiv.org/abs/2004.10964
 https://arxiv.org/abs/2302.03169
 https://arxiv.org/abs/2512.12384
 
+https://github.com/pytorch/pytorch/issues/121957
+
 # translation and inference
 https://arxiv.org/abs/2506.06335
 https://arxiv.org/abs/2602.06036
