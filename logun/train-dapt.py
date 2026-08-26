@@ -1,11 +1,15 @@
 from datetime import datetime
 from pathlib import Path
+import os
 import yaml
 
 from datasets import load_dataset
 import torch
 from transformers import AutoTokenizer, AutoModelForMaskedLM, DataCollatorForLanguageModeling, TrainingArguments, Trainer
 from peft import LoraConfig, get_peft_model, TaskType
+
+from dotenv import load_dotenv
+load_dotenv()
 
 model_name = 'Itau-Unibanco/NorBERTo-base'
 checkpoint_name = f'logun-base-{datetime.now().date()}-mlm'
@@ -57,13 +61,16 @@ args = TrainingArguments(
     eval_strategy="steps", eval_steps=500,
     save_steps=500, save_total_limit=2,
 
+    push_to_hub=True,
+    hub_model_id="heitorrosa/logun-base",
+    hub_strategy="every_save",
+    hub_token=os.getenv("HF_TOKEN"),
+
     dataloader_pin_memory=True
 )
 
 collator = DataCollatorForLanguageModeling(tokenizer, mlm=True, mlm_probability=0.15)
 trainer = Trainer(model=model, args=args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator)
 
-trainer.train(resume_from_checkpoint=True) # set to false for the first run
+trainer.train(resume_from_checkpoint=False) # set to false for the first run
 trainer.save(str(CACHE / checkpoint_name))
-
-# about 2 days of training in a 1660super + 32gb
