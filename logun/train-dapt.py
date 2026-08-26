@@ -4,7 +4,6 @@ import os
 import yaml
 
 from datasets import load_dataset
-import torch
 from transformers import AutoTokenizer, AutoModelForMaskedLM, DataCollatorForLanguageModeling, TrainingArguments, Trainer
 from peft import LoraConfig, get_peft_model, TaskType
 
@@ -20,7 +19,7 @@ config = yaml.safe_load(config.read_text(encoding="utf-8"))
 CACHE = Path(__file__).resolve().parent / "models"
 CACHE.mkdir(parents=True, exist_ok=True)
 
-DATASET_CACHE = (Path(__file__).resolve().parent / ".cache" / "datasets")
+DATASET_CACHE = CACHE / "datasets"
 DATASET_CACHE.mkdir(parents=True, exist_ok=True)
 
 tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=str(CACHE), use_fast=True)
