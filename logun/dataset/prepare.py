@@ -110,7 +110,7 @@ def count_tokens_for_text(text_value, tokenizer_obj):
     return max(1, len(text_value) // 4)
 
 
-def compute_token_stats(texts, tokenizer_name="answerdotai/ModernBERT-base"):
+def compute_token_stats(texts, tokenizer_name):
     if not texts:
         return {"total": 0, "mean": 0, "median": 0, "p50": 0, "p90": 0, "p95": 0, "estimated": True, "tokenizer": tokenizer_name}
 
@@ -190,7 +190,7 @@ def run_pipeline(config_override=None):
     chunk_size = int(dapt_config.get("chunk_size", 8192))
     overlap = int(dapt_config.get("overlap", 200))
     min_length = int(dapt_config.get("min_length", 400))
-    tokenizer_name = dapt_config.get("tokenizer", "answerdotai/ModernBERT-base")
+    tokenizer_name = dapt_config.get("tokenizer")
 
     raw_output = Path(paths_config["output_dir"])
     out_dir = (CONFIG_PATH.parent / raw_output).resolve() if not raw_output.is_absolute() else raw_output.resolve()

@@ -11,8 +11,9 @@ import torch
 from dotenv import load_dotenv
 load_dotenv()
 
-args = argparse.ArgumentParser()
-args.add_argument("--resume", action="store_true");
+parser = argparse.ArgumentParser()
+parser.add_argument("--resume", action="store_true")
+args = parser.parse_args()
 
 model_name = 'Itau-Unibanco/NorBERTo-base'
 checkpoint_name = f'logun-base-250M'
@@ -43,7 +44,7 @@ tokenized_dataset = dataset.map(
     batched=True, remove_columns=["text"], load_from_cache_file=True
 )
 
-args = TrainingArguments(
+training_args = TrainingArguments(
     output_dir=str(CACHE / checkpoint_name),
 
     per_device_train_batch_size=2,  # 2x8192 ~1.6gb
@@ -54,7 +55,7 @@ args = TrainingArguments(
     optim="adamw_torch_fused",
     learning_rate=0.00005, warmup_steps=500,
     weight_decay=0.01, adam_beta1=0.9, adam_beta2=0.95,
-    
+
     fp16=True,
     seed=config['seed'],
 
@@ -72,7 +73,7 @@ args = TrainingArguments(
 )
 
 collator = DataCollatorForLanguageModeling(tokenizer, mlm=True, mlm_probability=0.15)
-trainer = Trainer(model=model, args=args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator)
+trainer = Trainer(model=model, args=training_args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator)
 
-trainer.train(resume_from_checkpoint=args.parse_args().resume) # use --resume if checkpoint is avaliable
-trainer.save(str(CACHE / checkpoint_name))
+trainer.train(resume_from_checkpoint=args.resume)
+trainer.save_model(str(CACHE / checkpoint_name))
