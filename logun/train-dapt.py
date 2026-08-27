@@ -24,7 +24,7 @@ DATASET_CACHE = CACHE / "datasets"
 DATASET_CACHE.mkdir(parents=True, exist_ok=True)
 
 tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=str(CACHE), use_fast=True)
-model = AutoModelForMaskedLM.from_pretrained(model_name, cache_dir=str(CACHE), trust_remote_code=True, dtype=torch.bfloat16)
+model = AutoModelForMaskedLM.from_pretrained(model_name, cache_dir=str(CACHE), trust_remote_code=True, dtype=torch.float16)
 
 model = get_peft_model(model, LoraConfig(
     task_type=TaskType.TOKEN_CLS,
@@ -52,7 +52,7 @@ args = TrainingArguments(
     learning_rate=0.00005, warmup_steps=500,
     weight_decay=0.01, adam_beta1=0.9, adam_beta2=0.95, # adamw_torch_fused
     
-    bf16=True,
+    fp16=True,
     seed=config['seed'],
 
     logging_steps=50,
@@ -64,7 +64,8 @@ args = TrainingArguments(
     hub_strategy="every_save",
     hub_token=os.getenv("HF_TOKEN"),
 
-    dataloader_pin_memory=True
+    dataloader_pin_memory=True,
+    gradient_checkpointing=True
 )
 
 collator = DataCollatorForLanguageModeling(tokenizer, mlm=True, mlm_probability=0.15)
