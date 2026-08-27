@@ -3,6 +3,7 @@ import os
 import yaml
 import argparse
 
+from huggingface_hub import list_repo_files
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForMaskedLM, DataCollatorForLanguageModeling, TrainingArguments, Trainer
 from peft import LoraConfig, get_peft_model, TaskType
@@ -14,6 +15,13 @@ load_dotenv()
 parser = argparse.ArgumentParser()
 parser.add_argument("--resume", action="store_true")
 args = parser.parse_args()
+
+if args.resume:
+    files = list_repo_files("heitorrosa/logun-base")
+    nums = [int(p.split("-")[1]) for p in files if p.startswith("checkpoint-")]
+    resume = f"heitorrosa/logun-base/checkpoint-{max(nums)}" if nums else None
+else:
+    resume = None
 
 model_name = 'Itau-Unibanco/NorBERTo-base'
 checkpoint_name = f'logun-base-250M'
@@ -75,5 +83,5 @@ training_args = TrainingArguments(
 collator = DataCollatorForLanguageModeling(tokenizer, mlm=True, mlm_probability=0.15)
 trainer = Trainer(model=model, args=training_args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator)
 
-trainer.train(resume_from_checkpoint=args.resume)
+trainer.train(resume_from_checkpoint=resume)
 trainer.save_model(str(CACHE / checkpoint_name))

@@ -108,7 +108,7 @@ https://arxiv.org/pdf/2606.22722 (possible alternative for the non cc NorBERTo)
 
 todo:
 - [ ] include the cvm scraper specs
-- [ ] evaluate the usage of more efficient approaches for DAPT
+- [ ] include graphs for eda
 - [ ] replace "we are going to use x" to "Hypothesis -> Experiment -> Measurement -> Expected interpretation"
 
 specs:
