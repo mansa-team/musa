@@ -18,7 +18,7 @@ args = parser.parse_args()
 
 if args.resume:
     files = list_repo_files("heitorrosa/logun-base")
-    nums = [int(p.split("-")[1]) for p in files if p.startswith("checkpoint-")]
+    nums = [int(p.split("/")[0].split("-")[1]) for p in files if p.startswith("checkpoint-")]
     resume = f"heitorrosa/logun-base/checkpoint-{max(nums)}" if nums else None
 else:
     resume = None
