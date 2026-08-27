@@ -64,7 +64,7 @@ args = TrainingArguments(
 
     push_to_hub=True,
     hub_model_id="heitorrosa/logun-base",
-    hub_strategy="every_save",
+    hub_strategy="all_checkpoints",
     hub_token=os.getenv("HF_TOKEN"),
 
     dataloader_pin_memory=True,
