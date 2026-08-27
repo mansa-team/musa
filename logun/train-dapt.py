@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 model_name = 'Itau-Unibanco/NorBERTo-base'
-checkpoint_name = f'logun-base-{datetime.now().date()}-mlm'
+checkpoint_name = f'logun-base-250M-{datetime.now().date()}'
 
 config = Path(__file__).resolve().parent / "config.yaml"
 config = yaml.safe_load(config.read_text(encoding="utf-8"))
@@ -27,14 +27,14 @@ tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=str(CACHE), use_
 model = AutoModelForMaskedLM.from_pretrained(model_name, cache_dir=str(CACHE), trust_remote_code=True, dtype=torch.float16)
 
 model = get_peft_model(model, LoraConfig(
-    task_type=TaskType.TOKEN_CLS,
+    task_type=TaskType.FEATURE_EXTRACTION,
     r=16,
     lora_alpha=32,
     lora_dropout=0.05,
-    target_modules=["query","key","value","dense"]
+    target_modules=["Wqkv","Wo","Wi"]
 ))
 
-dataset = load_dataset("json", data_files="logun/dataset/data/output/corpus-250M.jsonl", cache_dir=str(DATASET_CACHE))["train"].train_test_split(test_size=0.02, seed=config['seed'])
+dataset = load_dataset("json", data_files="logun/dataset/data/output/corpus-250M.jsonl", cache_dir=str(DATASET_CACHE))["train"].train_test_split(test_size=0.01, seed=config['seed'])
 tokenized_dataset = dataset.map(
     lambda data: tokenizer(data['text'], truncation=True, max_length=8192),
     batched=True, remove_columns=["text"], load_from_cache_file=True
