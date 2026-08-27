@@ -84,7 +84,7 @@ to evaluate the token throughput performance compared to its accuracy in some be
 
 the 1660super is not good enough for this kind of training because of its emulated fp16 (~0.5tflops) vs fp32 (~10tflops), the lack of some kernels for performance like FlashAttention and my limited RAM bandwidth that could only be solved by upgrading the researchers GPU to some that supports Tensor Cores and proper fp16 or by using a cloud GPU like Google Colab's T4, which is free and will be used via colab-ssh for training alongside with checkpoint abusing for continuous runtime. The 1660 Super managed to make one checkpoint logun-base-2026-08-26-mlm-checkpoint-500 ({'loss': '0.6489', 'grad_norm': '0.08104', 'learning_rate': '4.99e-05', 'epoch': '0.08685'}) but it took about 13hours to train, which would make the project not viable, taking about ~7days just for the dapt on the base model (150m params). I tried running autoresearch with Deepseek v4 Flash 0731 for possible inference improvements on training but it wasnt really effective for the cost $1.00 in about 100M tokens it generated.
 
-to make use of the colab gpu, i needed to setup a huggingface repo and i had to setup some args to the trainerArguments in my loop.
+to make use of the colab gpu, i needed to setup a huggingface repo and i had to setup some args to the trainerArguments in my loop. the t4 setup takes about 1:30h to make a single checkpoint, 10x faster than the 1660super setup, the jupyter notebook was designed to allow for quick and easy resume if a t4 insteance hits its quota, allowing me to train the model easily using any jupyter compatible provider (kaggle, colab, etc.)
 
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960
