@@ -86,6 +86,13 @@ the 1660super is not good enough for this kind of training because of its emulat
 
 to make use of the colab gpu, i needed to setup a huggingface repo and i had to setup some args to the trainerArguments in my loop. the t4 setup takes about 1:30h to make a single checkpoint, 10x faster than the 1660super setup, the jupyter notebook was designed to allow for quick and easy resume if a t4 insteance hits its quota, allowing me to train the model easily using any jupyter compatible provider (kaggle, colab, etc.)
 
+while training is running on t4's, the researcher started the setup for the benchmarks on the llms for the mass translation operations, it's mainly going to use llama.cpp as the inference engine for easy reproduction of research and to allow the usage of gguf q4 models, the downloaded models are:
+
+- https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF
+- https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-DSpark-GGUF
+- https://huggingface.co/unsloth/Qwen3.5-4B-GGUF
+- 
+
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960
 https://arxiv.org/abs/2004.10964

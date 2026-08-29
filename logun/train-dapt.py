@@ -5,12 +5,17 @@ import argparse
 
 from huggingface_hub import list_repo_files, snapshot_download
 from datasets import load_dataset
-from transformers import AutoTokenizer, AutoModelForMaskedLM, DataCollatorForLanguageModeling, TrainingArguments, Trainer
+from transformers import AutoTokenizer, AutoModelForMaskedLM, DataCollatorForLanguageModeling, TrainingArguments, Trainer, TrainerCallback
 from peft import LoraConfig, get_peft_model, TaskType
 import torch
 
 from dotenv import load_dotenv
 load_dotenv()
+
+class EpochStopCallback(TrainerCallback):
+    def on_epoch_end(self, args, state, control, **kwargs):
+        if state.epoch >= 0.75:
+            control.should_training_stop = True
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 
@@ -95,7 +100,9 @@ training_args = TrainingArguments(
     hub_token=HF_TOKEN,
 
     dataloader_pin_memory=True,
-    gradient_checkpointing=True
+    gradient_checkpointing=True,
+
+    callbacks=[EpochStopCallback()]
 )
 
 collator = DataCollatorForLanguageModeling(tokenizer, mlm=True, mlm_probability=0.15)
