@@ -101,12 +101,10 @@ training_args = TrainingArguments(
 
     dataloader_pin_memory=True,
     gradient_checkpointing=True,
-
-    callbacks=[EpochStopCallback()]
 )
 
 collator = DataCollatorForLanguageModeling(tokenizer, mlm=True, mlm_probability=0.15)
-trainer = Trainer(model=model, args=training_args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator)
+trainer = Trainer(model=model, args=training_args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator, callbacks=[EpochStopCallback()])
 
 trainer.train(resume_from_checkpoint=resume)
 trainer.save_model(str(CACHE / checkpoint_name))
