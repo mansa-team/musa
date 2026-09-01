@@ -12,11 +12,6 @@ import torch
 from dotenv import load_dotenv
 load_dotenv()
 
-class EpochStopCallback(TrainerCallback):
-    def on_epoch_end(self, args, state, control, **kwargs):
-        if state.epoch >= 0.75:
-            control.should_training_stop = True
-
 HF_TOKEN = os.getenv("HF_TOKEN")
 
 parser = argparse.ArgumentParser()
@@ -104,7 +99,7 @@ training_args = TrainingArguments(
 )
 
 collator = DataCollatorForLanguageModeling(tokenizer, mlm=True, mlm_probability=0.15)
-trainer = Trainer(model=model, args=training_args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator, callbacks=[EpochStopCallback()])
+trainer = Trainer(model=model, args=training_args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator)
 
 trainer.train(resume_from_checkpoint=resume)
 trainer.save_model(str(CACHE / checkpoint_name))
