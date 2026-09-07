@@ -98,6 +98,10 @@ after the dapt on the initial refernece model, the researcher started the setup 
 its going to have the translation engine decoupled from the inference, making the researcher able to either use the local setup for translation and a external environment with google colab for that. in which, the user would only have to place in the config the urls for the apis, making everything easier and more manageable, the script will also contain a checkpoint system, so the researcher can resume the mass translation at any time.
 
 with the newly release of minicpm5 2b from openbmb on september 7th, its also going to be included in the benchmarks for the llms considering its incridible performance at the Artificial Analysis Intelligence Index v4.2 benchmark, outperforming all other candidates, with 14 points when compared to the 11 and 7 points from alibaba and liquidai respectably, another thing that pops up when evaluating this model is the -12 on the AA-Omniscience Index, where it outperforms both models considerably in terms of hallucination, which could be a positive point for the scenario of mass translation, where accuracy, even at temperature 0.0 is essential.
+- https://huggingface.co/openbmb/MiniCPM5-2B-GGUF
+- https://huggingface.co/openbmb/MiniCPM5-2B-DSpark
+
+[table showing the benchmarks from minicpm5 against qwen 3.5 4b and lfm 2.5 8a1b]
 
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
@@ -112,10 +116,13 @@ https://arxiv.org/abs/2506.06335 (finbert2, 2025)
 https://arxiv.org/abs/2603.22186 (two stage llm translation, 2026)
 https://arxiv.org/abs/2602.06036 (dflash, 2026)
 https://arxiv.org/abs/2607.05147 (dspark, 2026)
+https://artificialanalysis.ai/models?models=qwen3-5-4b-non-reasoning%2Clfm2-5-8b-a1b%2Cminicpm5-2b#speed (artificial analysis, 2026)
+
 
 # base models
 https://arxiv.org/abs/2511.23404 (lfm2 report, 2025)
 https://arxiv.org/abs/2505.09388 (qwen3 report, 2025)
+https://arxiv.org/abs/2506.07900 (minicpm4 report, 2025)
 
 https://arxiv.org/abs/2605.00086 (norberto, 2026)
 https://arxiv.org/abs/2606.22722 (moberto, 2026)
