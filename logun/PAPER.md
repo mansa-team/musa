@@ -97,6 +97,8 @@ after the dapt on the initial refernece model, the researcher started the setup 
 
 its going to have the translation engine decoupled from the inference, making the researcher able to either use the local setup for translation and a external environment with google colab for that. in which, the user would only have to place in the config the urls for the apis, making everything easier and more manageable, the script will also contain a checkpoint system, so the researcher can resume the mass translation at any time.
 
+with the newly release of minicpm5 2b from openbmb on september 7th, its also going to be included in the benchmarks for the llms considering its incridible performance at the Artificial Analysis Intelligence Index v4.2 benchmark, outperforming all other candidates, with 14 points when compared to the 11 and 7 points from alibaba and liquidai respectably, another thing that pops up when evaluating this model is the -12 on the AA-Omniscience Index, where it outperforms both models considerably in terms of hallucination, which could be a positive point for the scenario of mass translation, where accuracy, even at temperature 0.0 is essential.
+
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
 https://arxiv.org/abs/2004.10964 (dont stop pretraining, 2020)
