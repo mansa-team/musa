@@ -86,32 +86,57 @@ the 1660super is not good enough for this kind of training because of its emulat
 
 to make use of the colab gpu, i needed to setup a huggingface repo and i had to setup some args to the trainerArguments in my loop. the t4 setup takes about 1:30h to make a single checkpoint, 10x faster than the 1660super setup, the jupyter notebook was designed to allow for quick and easy resume if a t4 insteance hits its quota, allowing me to train the model easily using any jupyter compatible provider (kaggle, colab, etc.)
 
-while training is running on t4's, the researcher started the setup for the benchmarks on the llms for the mass translation operations, it's mainly going to use llama.cpp as the inference engine for easy reproduction of research and to allow the usage of gguf q4 models, the downloaded models are:
+the final checkpoint was set at checkpoint-8724, resulting in a 0.4919 eval loss, the researcher decided to merge the checkpoint-8500 for its marginally better performance at 0.4874 eval loss at epoch 1.4615
 
+[loss curve plot on the dapt model]
+
+after the dapt on the initial refernece model, the researcher started the setup for the benchmarks on the llms for the mass translation operations, it's mainly going to use llama.cpp as the inference engine for easy reproduction of research and to allow the usage of gguf q4 models, the downloaded models are:
 - https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF
 - https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-DSpark-GGUF
 - https://huggingface.co/unsloth/Qwen3.5-4B-GGUF
-- 
+
+its going to have the translation engine decoupled from the inference, making the researcher able to either use the local setup for translation and a external environment with google colab for that. in which, the user would only have to place in the config the urls for the apis, making everything easier and more manageable, the script will also contain a checkpoint system, so the researcher can resume the mass translation at any time.
 
 # dapt
-https://sol.sbc.org.br/index.php/bwaif/article/view/24960
-https://arxiv.org/abs/2004.10964
-https://arxiv.org/abs/2302.03169
-https://arxiv.org/abs/2512.12384
+https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
+https://arxiv.org/abs/2004.10964 (dont stop pretraining, 2020)
+https://arxiv.org/abs/2302.03169 (dsir, 2023)
+https://arxiv.org/abs/2512.12384 (scaling laws from continued pretraining, 2025)
 
-https://github.com/pytorch/pytorch/issues/121957
+https://github.com/pytorch/pytorch/issues/121957 (1660super fp16 issue, )
 
 # translation and inference
-https://arxiv.org/abs/2506.06335
-https://arxiv.org/abs/2602.06036
-https://arxiv.org/abs/2607.05147
+https://arxiv.org/abs/2506.06335 (finbert2, 2025)
+https://arxiv.org/abs/2603.22186 (two stage llm translation, 2026)
+https://arxiv.org/abs/2602.06036 (dflash, 2026)
+https://arxiv.org/abs/2607.05147 (dspark, 2026)
 
 # base models
-https://arxiv.org/pdf/2511.23404
-https://arxiv.org/pdf/2505.09388
+https://arxiv.org/abs/2511.23404 (lfm2 report, 2025)
+https://arxiv.org/abs/2505.09388 (qwen3 report, 2025)
 
-https://arxiv.org/abs/2605.00086
-https://arxiv.org/pdf/2606.22722 (possible alternative for the non cc NorBERTo)
+https://arxiv.org/abs/2605.00086 (norberto, 2026)
+https://arxiv.org/abs/2606.22722 (moberto, 2026)
+
+# core
+https://arxiv.org/abs/1810.04805 (BERT, 2018)
+https://arxiv.org/abs/1907.11692 (RoBERTa, 2019)
+https://arxiv.org/abs/2106.09685 (LoRA, 2021)
+https://arxiv.org/abs/2305.14314 (QLoRA, 2023)
+
+https://arxiv.org/abs/1908.10063 (FinBERT, 2019)
+https://aclanthology.org/W14-1405/ (Financial PhraseBank, 2014)
+
+https://arxiv.org/abs/2203.15556 (Chinchilla / compute-optimal training, 2022)
+https://arxiv.org/abs/2001.08361 (Scaling Laws for Neural Language Models, 2020)
+
+https://www.mdpi.com/2078-2489/11/10/484 (Portuguese NLI / STS benchmarking, includes ASSIN2, 2020)
+
+https://arxiv.org/abs/2211.17192 (Speculative Decoding, 2022)
+https://aclanthology.org/2022.wmt-1.60/ (COMET / MT quality estimation, 2022)
+https://aclanthology.org/P02-1040/ (BLEU, 2002)
+
+https://arxiv.org/abs/2001.08361 (Scaling Laws, 2020)
 
 todo:
 - [ ] include the cvm scraper specs
