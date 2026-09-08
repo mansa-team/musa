@@ -2,7 +2,6 @@ import glob
 import json
 import logging
 import os
-import sys
 import matplotlib
 from matplotlib import pyplot as plt
 
@@ -71,11 +70,11 @@ def plotStates(states: list[str], outDir: str) -> str:
     return pngPath
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = list(argv) if argv is not None else sys.argv[1:]
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO,)
     scriptDir = os.path.dirname(os.path.abspath(__file__),)
     searchRoot = os.path.dirname(os.path.dirname(os.path.dirname(scriptDir,),),)
-    outDir = args[0] if len(args) > 0 else scriptDir
+    outDir = scriptDir
     os.makedirs(
         outDir,
         exist_ok=True,
@@ -87,16 +86,10 @@ def main(argv: list[str] | None = None) -> int:
     ]
     if not states:
         print(f"No trainer_state.json found under {searchRoot}")
-        return 0
-    pngPath = plotStates(
-        states,
-        outDir,
-    )
-    logger.info(f"Plotted {len(states)} curves to {pngPath}")
-    print(f"Wrote {pngPath} from {len(states)} files")
-    return 0
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO,)
-    raise SystemExit(main(),)
+    else:
+        pngPath = plotStates(
+            states,
+            outDir,
+        )
+        logger.info(f"Plotted {len(states)} curves to {pngPath}")
+        print(f"Wrote {pngPath} from {len(states)} files")

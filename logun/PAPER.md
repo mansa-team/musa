@@ -51,11 +51,10 @@ The data corpus for this fine tuning approach consists of a data from a range of
 They were selected to cover a range of different approaches on news, which makes the model a better generalist. Since these data is in English, the researcher proposed the usage of LLMs like Qwen 3.5 4B with breakthrough Speculative Decoding technologies like dspark/mtp for mass translation of the labels in a specialized scripts tailored for checkpoints and concurrency on the translation process of the datasets, that are going to be further merged within a data preparation for a final submit for the LoRa pipeline. The LLM setup uses a small context window 4096 tokens to optimize the VRAM headroom for the Speculative Decoding application, it also uses a 4bit quantization to reduce the VRAM footprint further, allowing for high performance throughput in translation tasks.
 The scripts will also contain specialized configs for the LLMs for low hallucination profiles with tight temperatures and top-k configs, with a strong and structure system prompt to prevent deviations in outputs. They will also be evaluated using COMET (Unbabel/wmt22-cometkiwi-da at int8) for quality gating
 
-(include benchmarks on tk/s generation and vram usage on different scenarios for qwen with different dspark/mtp configs)
+[include benchmarks on tk/s generation and vram usage on different scenarios for qwen with different dspark/mtp configs]
 
 As per the results, they are compared in a benchamrk to compare the results in accuracy and latency, it considers the usage of 3 datasets as benchmarks:
     https://www.kaggle.com/datasets/mateuspicanco/financial-phrase-bank-portuguese-translation
-    https://huggingface.co/datasets/lucas-leme/Sentiments-FinBERT-PT-BR
     https://huggingface.co/datasets/cardiffnlp/tweet_sentiment_multilingual (portuguese subset)
 
 These will evaluate the ability of the model in
@@ -89,6 +88,23 @@ to make use of the colab gpu, i needed to setup a huggingface repo and i had to 
 the final checkpoint was set at checkpoint-8724, resulting in a 0.4919 eval loss, the researcher decided to merge the checkpoint-8500 for its marginally better performance at 0.4874 eval loss at epoch 1.4615
 
 [loss curve plot on the dapt model]
+
+the dapt has also been shown to be effective, helping the newly trained model to understand cvm language better as per a simple holdout mlm benchmark shows
+
+{
+  "base": {
+    "loss": 1.1733974539316618,
+    "acc": 0.747016706443914,
+    "nMasked": 3771
+  },
+  "dapt": {
+    "loss": 0.8408773816548861,
+    "acc": 0.8069477592150623,
+    "nMasked": 3771
+  }
+}
+
+leakege checks also report a "0/100 held-out docs occur verbatim in the training pool (0.00%)", indicating valid results
 
 after the dapt on the initial refernece model, the researcher started the setup for the benchmarks on the llms for the mass translation operations, it's mainly going to use llama.cpp as the inference engine for easy reproduction of research and to allow the usage of gguf q4 models, the downloaded models are:
 - https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF
