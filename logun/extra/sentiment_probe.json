@@ -9,6 +9,11 @@
     "f1Mean": 0.708574586765946,
     "n": 4845
   },
+  "higopires/DeB3RTa-base": {
+    "accMean": 0.635463011264801,
+    "f1Mean": 0.4862547484630529,
+    "n": 4845
+  },
   "lucas-leme/FinBERT-PT-BR": {
     "accMean": 0.7902184200286866,
     "f1Mean": 0.760336656065294,

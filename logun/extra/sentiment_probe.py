@@ -1,18 +1,18 @@
+import os
 import csv
 import json
 import logging
-import os
-
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CACHE_DIR = os.path.join(REPO_ROOT, ".cache", "hub")
-os.makedirs(CACHE_DIR, exist_ok=True)
-# ponytail: set before any HF-touching import; huggingface_hub freezes defaults at import.
-os.environ["HF_HUB_CACHE"] = CACHE_DIR
-
 import torch
 from flashlib.applications.logistic_regression import LogisticRegression as FlashLogisticRegression
 from dotenv import load_dotenv
 from transformers import AutoModel, AutoTokenizer
+
+CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models")
+os.makedirs(CACHE_DIR, exist_ok=True)
+os.environ["HF_HUB_CACHE"] = CACHE_DIR
+os.environ["HF_HOME"] = CACHE_DIR
+os.environ["HUGGINGFACE_HUB_CACHE"] = CACHE_DIR
+os.environ["TRANSFORMERS_CACHE"] = CACHE_DIR
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ LABEL_MAP = {
 MODEL_POOL = (
     "Itau-Unibanco/NorBERTo-base",
     "heitorrosa/logun-base",
-    "D:/Repositories/research/logun/models/models--higopires--DeB3RTa-base/snapshots/328a7d228cbb66b6bb00cf8b70efd8999b86f060",
+    "higopires/DeB3RTa-base",
     "lucas-leme/FinBERT-PT-BR",
 )
 
@@ -162,25 +162,30 @@ if __name__ == "__main__":
 
     results = {}
     for name in MODEL_POOL:
-        print(f"probing {name}")
-        feats = torch.tensor(encodeTexts(name, texts), device=DEVICE)
-        gold = torch.tensor(labels, device=DEVICE)
+        try:
+            print(f"probing {name}")
+            feats = torch.tensor(encodeTexts(name, texts), device=DEVICE)
+            gold = torch.tensor(labels, device=DEVICE)
 
-        accRuns = []
-        f1Runs = []
-        for seed in SEEDS:
-            acc, f1 = foldScores(feats, gold, seed)
-            print(f"seed {seed}: acc={acc:.4f} f1={f1:.4f}")
-            accRuns.append(acc)
-            f1Runs.append(f1)
+            accRuns = []
+            f1Runs = []
+            for seed in SEEDS:
+                acc, f1 = foldScores(feats, gold, seed)
+                print(f"seed {seed}: acc={acc:.4f} f1={f1:.4f}")
+                accRuns.append(acc)
+                f1Runs.append(f1)
 
-        results[name] = {
-            "accMean": sum(accRuns) / len(accRuns),
-            "f1Mean": sum(f1Runs) / len(f1Runs),
-            "n": len(texts),
-        }
+            results[name] = {
+                "accMean": sum(accRuns) / len(accRuns),
+                "f1Mean": sum(f1Runs) / len(f1Runs),
+                "n": len(texts),
+            }
 
-        print(f"{name}: acc={results[name]['accMean']:.4f} f1={results[name]['f1Mean']:.4f} (n={len(texts)})")
+            print(f"{name}: acc={results[name]['accMean']:.4f} f1={results[name]['f1Mean']:.4f} (n={len(texts)})")
+        except Exception as e:
+            results[name] = {"error": str(e)}
+            print(f"{name}: ERROR {e}")
+            continue
 
     scriptDir = os.path.dirname(os.path.abspath(__file__))
     outPath = os.path.join(scriptDir, "sentiment_probe.json")
