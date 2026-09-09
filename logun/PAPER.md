@@ -43,7 +43,7 @@ The chosen finetuning methodology by the researcher is LoRa, it's choice is main
 For a more in depth domain on financial language in Portuguese corpus text, the research also includes the usage of extended pre-training on CVM financial data for DAPT, this approach allows for the ModernBERT model to better adapt its weights for a posterior LoRa Supervised Fine-Tuning and proper exposure of these tokens in the embedding space, which is going to improve the accuracy of the model in classification tasks in which financial tailored speech is included.
 
 The data corpus for this fine tuning approach consists of a data from a range of datasets that were curated using LLMs for accurate translations and iterations on a Portuguese corpus. The used datasets are:
-    https://huggingface.co/datasets/ab30atsiwo/finbert-gpt
+    https://huggingface.co/datasets/ab30atsiwo/finbert-gpt (phrasebank ones dropped)
     https://huggingface.co/datasets/FinGPT/fingpt-sentiment-train
     https://huggingface.co/datasets/TimKoornstra/financial-tweets-sentiment
     https://huggingface.co/datasets/KalsusEvening/financial-news-headlines
@@ -71,7 +71,26 @@ for size optimization matters, the researcher extracted the cvm fillings from 20
 
 according to dapt papers, the sweetspot for tokens on dapt is about 250M, which will be used as input for the split.py script, this sums to about 2days in continuous training in the 1660super at 3 epochs. The dapt script will use MLM on LoRa for efficient VRAM usage for the newly trained model.
 
-the corpus split script uses Data Selection via Importance Resampling, formalized by Xie et al. 2023, in which hashed 1+2-gram features are put into 10k buckets with Laplace smoothing (alpha 1.0) to get gamma (target) and nu (source) and then each chunk just gets log w = sum cnt * log(gamma/nu) and we sort top until 250M, which is way better than a dumb FINANCIAL_TERMS list cause that misses paraphrases like oferta pública vs alienação de controle and is super brittle, also beats classifier stuff like fastText/BERT that need training and overfit and embedding centroid that needs gpu and has hubness and perplexity/CED that collapses to mode — DSIR is just split+zlib.crc32 + Counter so its minutes on cpu even for 924k, works for pt-br without lang model, generative so it dont overfit like discriminative (-0.6% worse in Xie), bigram gets +0.26 over unigram and the KL reduction actually predicts F1 with r=0.82 so we know before training its good.
+We select DAPT data with DSIR (Xie et al. 2023): hashed uni+bigram features in 10k buckets estimate target vs. source distributions, each chunk is scored by its importance weight, and we keep the top chunks up to 250M tokens. Unlike keyword lists, it catches paraphrases; unlike classifier or embedding filters, it needs no training, no GPU, and no language model, minutes on CPU. Selection quality is known before training: the KL cut (0.0769 -> 0.0534) predicts downstream F1 with r = 0.82.
+
+[categories split plot from the dsir seelction over the dataset]
+
+"kl_divergence": {
+  "pre": 0.0769,
+  "post": 0.0534,
+  "reduction": 0.0234,
+  "ratio": 0.305,
+  "gate_pass": true
+},
+"gates": {
+  "duplicate_ratio": 0.0,
+  "duplicate_pass": true,
+  "hoje_ratio": 0.0269,
+  "hoje_pass": true,
+  "kl_gate_pass": true,
+  "expected_threshold": 375977.6,
+  "r_predictive": 0.82
+},
 
 for the sft pipeline, the dataset translation will include an api proxy with google colab's free tier for shared inference speeds on qwen 3.5 4b with the 1660super setup. for reproducibility purpouse, the inference engine will be wrapped around a docker container, allowing for easy replication across environments. the translation script will use both serving endpoints for concurrency stability, allowing the script to serve multiple translations per iteration because of the high throughput created by the fusion of a small model + dspark/mtp.
 
@@ -94,11 +113,13 @@ the dapt has also been shown to be effective, helping the newly trained model to
 {
   "base": {
     "loss": 1.1733974539316618,
+    "ppl": 3.232957601547241,
     "acc": 0.747016706443914,
     "nMasked": 3771
   },
   "dapt": {
     "loss": 0.8408773816548861,
+    "ppl": 2.3184001445770264,
     "acc": 0.8069477592150623,
     "nMasked": 3771
   }
@@ -117,7 +138,7 @@ with the newly release of minicpm5 2b from openbmb on september 7th, its also go
 - https://huggingface.co/openbmb/MiniCPM5-2B-GGUF
 - https://huggingface.co/openbmb/MiniCPM5-2B-DSpark
 
-[table showing the benchmarks from minicpm5 against qwen 3.5 4b and lfm 2.5 8a1b]
+[table showing the benchmarks from minicpm5 against qwen 3.5 4b and lfm 2.5 8b a1b]
 
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)

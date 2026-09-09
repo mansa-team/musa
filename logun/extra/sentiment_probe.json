@@ -1,0 +1,17 @@
+{
+  "Itau-Unibanco/NorBERTo-base": {
+    "accMean": 0.75231867313385,
+    "f1Mean": 0.7055589960244615,
+    "n": 4845
+  },
+  "heitorrosa/logun-base": {
+    "accMean": 0.7568195676803589,
+    "f1Mean": 0.708574586765946,
+    "n": 4845
+  },
+  "lucas-leme/FinBERT-PT-BR": {
+    "accMean": 0.7902184200286866,
+    "f1Mean": 0.760336656065294,
+    "n": 4845
+  }
+}

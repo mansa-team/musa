@@ -4,6 +4,7 @@ import os
 import random
 import torch
 from transformers import AutoModelForMaskedLM, AutoTokenizer
+from huggingface_hub import snapshot_download
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +62,11 @@ def maskBatch(
 def evalModel(modelPath: str, texts: list[str]) -> dict:
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    tokenizer = AutoTokenizer.from_pretrained(modelPath)
-    model = AutoModelForMaskedLM.from_pretrained(modelPath)
+    snapPath = snapshot_download(modelPath)
+    print(f"{modelPath} -> {snapPath}")
+
+    tokenizer = AutoTokenizer.from_pretrained(snapPath)
+    model = AutoModelForMaskedLM.from_pretrained(snapPath)
     model.to(device,)
     model.eval()
 
@@ -98,8 +102,10 @@ def evalModel(modelPath: str, texts: list[str]) -> dict:
             totals["masked"] += int(keep.sum())
             totals["batches"] += 1
 
+    loss = totals["loss"] / totals["batches"]
     return {
-        "loss": totals["loss"] / totals["batches"],
+        "loss": loss,
+        "ppl": float(torch.exp(torch.tensor(loss))),
         "acc": totals["hits"] / totals["masked"],
         "nMasked": totals["masked"],
     }
@@ -119,7 +125,7 @@ if __name__ == "__main__":
         metrics = evalModel(path, texts)
         results[name] = metrics
 
-        print(f"{name}: loss={metrics['loss']:.4f} acc={metrics['acc']:.4f}")
+        print(f"{name}: loss={metrics['loss']:.4f} ppl={metrics['ppl']:.2f} acc={metrics['acc']:.4f}")
 
     gap = results["base"]["loss"] - results["dapt"]["loss"]
     print(f"delta loss (base-dapt): {gap:.4f}")
