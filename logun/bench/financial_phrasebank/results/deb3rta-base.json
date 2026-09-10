@@ -1,0 +1,9 @@
+{
+  "slug": "deb3rta-base",
+  "model": "higopires/DeB3RTa-base",
+  "acc": 0.7144330143928528,
+  "f1": 0.6345372158851853,
+  "latencyMs": {
+    "classifyPerText": 30.55
+  }
+}

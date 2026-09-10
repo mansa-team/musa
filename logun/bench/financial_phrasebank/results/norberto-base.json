@@ -1,0 +1,9 @@
+{
+  "slug": "norberto-base",
+  "model": "Itau-Unibanco/NorBERTo-base",
+  "acc": 0.7443299293518066,
+  "f1": 0.6956772179636905,
+  "latencyMs": {
+    "classifyPerText": 49.77
+  }
+}

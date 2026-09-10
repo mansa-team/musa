@@ -1,0 +1,9 @@
+{
+  "slug": "finbert-ptbr",
+  "model": "lucas-leme/FinBERT-PT-BR",
+  "acc": 0.7865979671478271,
+  "f1": 0.7510023016121212,
+  "latencyMs": {
+    "classifyPerText": 21.4
+  }
+}

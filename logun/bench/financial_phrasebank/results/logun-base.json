@@ -1,0 +1,9 @@
+{
+  "slug": "logun-base",
+  "model": "heitorrosa/logun-base",
+  "acc": 0.7484536170959473,
+  "f1": 0.7031124603813468,
+  "latencyMs": {
+    "classifyPerText": 43.07
+  }
+}
