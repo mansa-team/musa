@@ -4,6 +4,7 @@ import urllib.request
 from score import DEFAULT_CSV, loadDataset, scoreModel, scoreWithGenerate
 
 MODELS = [
+    ("modernbert-base", "answerdotai/ModernBERT-base", None),
     ("norberto-base", "Itau-Unibanco/NorBERTo-base", None),
     ("logun-base", "heitorrosa/logun-base", None),
     ("finbert-ptbr", "lucas-leme/FinBERT-PT-BR", None),

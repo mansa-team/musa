@@ -1,0 +1,9 @@
+{
+  "slug": "modernbert-base",
+  "model": "answerdotai/ModernBERT-base",
+  "acc": 0.6329897046089172,
+  "f1": 0.5418400762770995,
+  "latencyMs": {
+    "classifyPerText": 41.55
+  }
+}

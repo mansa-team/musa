@@ -255,7 +255,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
     # ponytail: C: TEMP full kills large folder uploads, stage hf temp files under repo instead
-    scratchEnv = {**os.environ, "TEMP": str(SCRATCH_DIR), "TMP": str(SCRATCH_DIR), "TMPDIR": str(SCRATCH_DIR),}
+    scratchEnv = {**os.environ, "TEMP": str(SCRATCH_DIR), "TMP": str(SCRATCH_DIR), "TMPDIR": str(SCRATCH_DIR), "HF_DEBUG": "1",}
     args = sys.argv[1:]
     if "--help" in args:
         print("usage: hf_upload_corpus.py [--dry-run] [--only=SUBSTR] [--redo=Y1,Y2]  (pdfs <=9000 single, 429 exits 75)")
