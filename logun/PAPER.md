@@ -192,3 +192,7 @@ todo:
 specs:
 1660super 6gb 192gb/s
 4x8gb 25gb/s
+
+related urls:
+- https://huggingface.co/heitorrosa/logun-base
+- https://huggingface.co/datasets/heitorrosa/cvm-corpus
