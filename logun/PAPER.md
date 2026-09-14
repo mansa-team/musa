@@ -140,6 +140,8 @@ with the newly release of minicpm5 2b from openbmb on september 7th, its also go
 
 [table showing the benchmarks from minicpm5 against qwen 3.5 4b and lfm 2.5 8b a1b]
 
+A dopcker contaienr env couldnt be setupped for the LLMs becuase hte perforamnce penalty between it and running a standard llamacpp server is immense, the researcher will seek for alternatives on how to give a reproduceable environment soon enough to the publishment of the preprint in arXiv
+
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
 https://arxiv.org/abs/2004.10964 (dont stop pretraining, 2020)
