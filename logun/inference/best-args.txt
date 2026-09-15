@@ -1,0 +1,2 @@
+D:\Repositories\research\serve\llamacpp-bin\llama-server.exe -m logun/models/LFM2.5-8B-A1B-Q4_0.gguf --host 127.0.0.1 --port 8080 -c 2048 -ngl 99 --flash-attn on --cache-type-k q4_0 --cache-type-v q4_0 --parallel 1
+# measured 158.41 tok/s

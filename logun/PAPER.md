@@ -136,11 +136,11 @@ its going to have the translation engine decoupled from the inference, making th
 
 with the newly release of minicpm5 2b from openbmb on september 7th, its also going to be included in the benchmarks for the llms considering its incridible performance at the Artificial Analysis Intelligence Index v4.2 benchmark, outperforming all other candidates, with 14 points when compared to the 11 and 7 points from alibaba and liquidai respectably, another thing that pops up when evaluating this model is the -12 on the AA-Omniscience Index, where it outperforms both models considerably in terms of hallucination, which could be a positive point for the scenario of mass translation, where accuracy, even at temperature 0.0 is essential.
 - https://huggingface.co/openbmb/MiniCPM5-2B-GGUF
-- https://huggingface.co/openbmb/MiniCPM5-2B-DSpark
+- https://huggingface.co/openbmb/MiniCPM5-2B-DSpark (https://huggingface.co/aj9o9/MiniCPM5-2B-DSpark-GGUF for a q8_0 quantization)
 
 [table showing the benchmarks from minicpm5 against qwen 3.5 4b and lfm 2.5 8b a1b]
 
-A dopcker contaienr env couldnt be setupped for the LLMs becuase hte perforamnce penalty between it and running a standard llamacpp server is immense, the researcher will seek for alternatives on how to give a reproduceable environment soon enough to the publishment of the preprint in arXiv
+A docker contaienr env couldnt be configured for the LLMs becuase the perforamnce penalty between it and running a standard llamacpp server is immense, the researcher will seek for alternatives on how to give a reproduceable environment soon enough to the publishment of the preprint on arXiv, for now, the standard llamacpp-server wil be used in the version compiled for NT-Kernel based systems
 
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)

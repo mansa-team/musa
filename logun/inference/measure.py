@@ -16,9 +16,9 @@ TEMPERATURE = 0
 DEFAULT_OUT = os.path.join(HERE, "last-measure.json")
 
 
-def postOnce():
+def postOnce(promptText):
     body = json.dumps(
-        {"prompt": PROMPT, "n_predict": N_PREDICT, "temperature": TEMPERATURE, "stream": False,},
+        {"prompt": promptText, "n_predict": N_PREDICT, "temperature": TEMPERATURE, "stream": False,},
     ).encode()
     req = urllib.request.Request(URL, data=body, headers={"Content-Type": "application/json",})
     with urllib.request.urlopen(req, timeout=30) as resp:
@@ -47,10 +47,20 @@ try:
         if outIdx + 1 >= len(args):
             raise ValueError("missing value for --out")
         outPath = args[outIdx + 1]
+    promptText, promptSrc = PROMPT, "default"
+    if "--prompt" in args:
+        promptIdx = args.index("--prompt")
+        if promptIdx + 1 >= len(args):
+            raise ValueError("missing value for --prompt")
+        promptText, promptSrc = args[promptIdx + 1], "custom"
+    # ponytail: /completion string prompt is already the raw path (verified: /tokenize returns 68 tokens,
+    # exactly the server prompt-eval count, on stock b10944 with no --chat-template flags), so --no-template
+    # asserts that path and records it; pair with --prompt plain text for chat-tuned models like MiniCPM5.
+    noTemplate = "--no-template" in args
     print("warmup request sent")
-    postOnce()  # run 1: first-touch warmup, discarded
+    postOnce(promptText)  # run 1: first-touch warmup, discarded
     print("measured request sent")
-    resp = postOnce()  # run 2: measured
+    resp = postOnce(promptText)  # run 2: measured
     text = resp.get("content", "")
     timings = resp.get("timings", {}) or {}
     predN, predMs = timings.get("predicted_n", 0), timings.get("predicted_ms", 0)
@@ -64,6 +74,8 @@ try:
         "nPredict": N_PREDICT,
         "temperature": TEMPERATURE,
         "url": URL,
+        "promptSrc": promptSrc,
+        "noTemplate": noTemplate,
     }
     line = json.dumps(result, separators=(",", ":"),)
     with open(outPath, "w", encoding="utf-8",) as handle:

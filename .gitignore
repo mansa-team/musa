@@ -7,3 +7,4 @@ __pycache__
 
 logun/dataset/data/*
 logun/models/*
+logun/inference/llamacpp-bin/
