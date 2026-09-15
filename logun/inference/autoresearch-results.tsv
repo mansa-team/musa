@@ -1,0 +1,9 @@
+iteration	config	toksPerSec	vramMiB	note
+1	baseline	145.45	5644	sane
+2	dspark-draft	n/a	n/a	load-fail-invalid-vector-subscript
+2b	dspark-draft-ngld0	15.86	5899	sane-but-9x-regression-unstable
+2c	dspark-draft-ngld99	88.01	5663	sane-but-loses-to-baseline
+3	flash-attn-on	152.07	5458	sane-new-best
+4	kv-q8_0	155.13	5497	sane-new-best
+5	kv-q4_0	156.14	5472	sane-new-best-marginal
+6	parallel-1	158.41	5488	sane-new-best
