@@ -144,14 +144,14 @@ A docker contaienr env could not be configured for the LLMs becuase the perforam
 
 the benchmarks between the different models and configs are the follwoing
 
-lfm 2.5 8a1b dspark: {"toksPerSec":100.4,"vramMiB":5670,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion","promptSrc":"default","noTemplate":false}
-lfm 2.5 8a1b: {"toksPerSec":161.4,"vramMiB":5322,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion","promptSrc":"default","noTemplate":false}
-minicpm5 2b dspark: {"toksPerSec":57.68,"vramMiB":5663,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion","promptSrc":"custom","noTemplate":true}
-minicpm5 2b: {"toksPerSec":113.82,"vramMiB":4699,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion","promptSrc":"custom","noTemplate":true}
+lfm 2.5 8a1b dspark: {"toksPerSec":100.4,"vramMiB":5670,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion"}
+lfm 2.5 8a1b: {"toksPerSec":161.4,"vramMiB":5322,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion"}
+minicpm5 2b dspark: {"toksPerSec":57.68,"vramMiB":5663,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion"}
+minicpm5 2b: {"toksPerSec":113.82,"vramMiB":4699,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion"}
 qwen 3.5 4b mtp: {"toksPerSec":84.03,"vramMiB":5252,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion"}
-qwen 3.5 4b: {"toksPerSec":66.69,"vramMiB":4547,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion","promptSrc":"default","noTemplate":true}
+qwen 3.5 4b: {"toksPerSec":66.69,"vramMiB":4547,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion"}
 
-compared to minicpm5 without dspark, lfm 2.5 8a1b is about 41% faster across a 366gb/s gpu, the comparasions were made in the 1660super, which would yield a similar result in the t4 due to their bandwidth being similar 336gb/s vs 320gb/s and inferece being bandwidth bound. The performance is being questionable with dspark and mtp mostly because im being vram limited, for tests like the one with qwen 3.5 4b mtp the model improved its performance with mtp, while the ones using dspark got a noticiable drop, the reserachers theory is that since the drafter from dspakr is a separate model rather the ones from mtp, the vram increase crashes from the gpu, with it having to offload part of its layers to the system ram, but further research would be needed and is not the main topic from this paper.
+compared to minicpm5 without dspark, lfm 2.5 8a1b is about 41% faster across a 366gb/s gpu, the comparasions were made in the 1660super, which would yield a similar result in the t4 due to their bandwidth being similar 336gb/s vs 320gb/s and inferece being bandwidth bound. The performance is being questionable with dspark and mtp mostly because im being vram limited, for tests like the one with qwen 3.5 4b mtp the model improved its performance with mtp, while the ones using dspark got a noticiable drop, the reserachers theory is that since the drafter from dspark is a separate model rather the ones from mtp, the vram increase crashes from the gpu, with it having to offload part of its layers to the system ram, also low acceptance rates from the drafters could further help slowdown inference when using dspark, but further research would be needed and is not the main topic from this paper.
 
 
 # dapt
