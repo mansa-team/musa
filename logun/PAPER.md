@@ -140,7 +140,19 @@ with the newly release of minicpm5 2b from openbmb on september 7th, its also go
 
 [table showing the benchmarks from minicpm5 against qwen 3.5 4b and lfm 2.5 8b a1b]
 
-A docker contaienr env couldnt be configured for the LLMs becuase the perforamnce penalty between it and running a standard llamacpp server is immense, the researcher will seek for alternatives on how to give a reproduceable environment soon enough to the publishment of the preprint on arXiv, for now, the standard llamacpp-server wil be used in the version compiled for NT-Kernel based systems
+A docker contaienr env could not be configured for the LLMs becuase the perforamnce penalty between it and running a standard llamacpp server is immense, the researcher will seek for alternatives on how to give a reproduceable environment soon enough to the publishment of the preprint on arXiv, for now, the standard llamacpp-server wil be used in the version compiled for NT-Kernel based systems.
+
+the benchmarks between the different models and configs are the follwoing
+
+lfm 2.5 8a1b dspark: {"toksPerSec":100.4,"vramMiB":5670,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion","promptSrc":"default","noTemplate":false}
+lfm 2.5 8a1b: {"toksPerSec":161.4,"vramMiB":5322,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion","promptSrc":"default","noTemplate":false}
+minicpm5 2b dspark: {"toksPerSec":57.68,"vramMiB":5663,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion","promptSrc":"custom","noTemplate":true}
+minicpm5 2b: {"toksPerSec":113.82,"vramMiB":4699,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion","promptSrc":"custom","noTemplate":true}
+qwen 3.5 4b mtp: {"toksPerSec":84.03,"vramMiB":5252,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion"}
+qwen 3.5 4b: {"toksPerSec":66.69,"vramMiB":4547,"sane":true,"nPredict":128,"temperature":0,"url":"http://127.0.0.1:8080/completion","promptSrc":"default","noTemplate":true}
+
+compared to minicpm5 without dspark, lfm 2.5 8a1b is about 41% faster across a 366gb/s gpu, the comparasions were made in the 1660super, which would yield a similar result in the t4 due to their bandwidth being similar 336gb/s vs 320gb/s and inferece being bandwidth bound. The performance is being questionable with dspark and mtp mostly because im being vram limited, for tests like the one with qwen 3.5 4b mtp the model improved its performance with mtp, while the ones using dspark got a noticiable drop, the reserachers theory is that since the drafter from dspakr is a separate model rather the ones from mtp, the vram increase crashes from the gpu, with it having to offload part of its layers to the system ram, but further research would be needed and is not the main topic from this paper.
+
 
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
@@ -192,8 +204,11 @@ todo:
 - [ ] replace "we are going to use x" to "Hypothesis -> Experiment -> Measurement -> Expected interpretation"
 
 specs:
-1660super 6gb 192gb/s
+1660super 6gb 336gb/s
 4x8gb 25gb/s
+
+cloud:
+t4 16gb 336gb/s
 
 related urls:
 - https://huggingface.co/heitorrosa/logun-base
