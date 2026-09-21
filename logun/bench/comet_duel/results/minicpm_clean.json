@@ -1,0 +1,182 @@
+[
+  {
+    "id": 0,
+    "en": "This is Done Logistics ' largest order in Norway , the diversified group said .",
+    "src": "This is Done Logistics ' largest order in Norway , the diversified group said .",
+    "mt": "Isso é feito Logística, maior pedido da Noruega, disse o grupo diversificado.",
+    "ref": "Este Ã© o maior pedido da Done Logistics na Noruega, disse o diversificado grupo.",
+    "y": "positive",
+    "model": "minicpm"
+  },
+  {
+    "id": 1,
+    "en": "HELSINKI ( AFX ) - Retail and wholesale group Kesko reported net sales of 659.4 mln eur for February , an increase of 10.8 pct year-on-year .",
+    "src": "HELSINKI ( AFX ) - Retail and wholesale group Kesko reported net sales of 659.4 mln eur for February , an increase of 10.8 pct year-on-year .",
+    "mt": "HELSINKI ( AFX ) - Grupo de varejo e madeireiro Kesko reportou vendas líquidas de 659,4 mln eur para fevereiro, um aumento de 10,8 pct ano a ano.",
+    "ref": "HELSINKI (AFX) - O grupo de varejo e atacado Kesko registrou vendas lÃ­quidas de 659,4 milhÃµes de euros em fevereiro, um aumento de 10,8 por cento no comparativo anual.",
+    "y": "positive",
+    "model": "minicpm"
+  },
+  {
+    "id": 2,
+    "en": "Vacon 's office will support its customers in Brazil and South America .",
+    "src": "Vacon 's office will support its customers in Brazil and South America .",
+    "mt": "A oficina de Vacon apoiará seus clientes no Brasil e na América do Sul.",
+    "ref": "O escritÃ³rio da Vacon darÃ¡ suporte a seus clientes no Brasil e na AmÃ©rica do Sul.",
+    "y": "neutral",
+    "model": "minicpm"
+  },
+  {
+    "id": 3,
+    "en": "Both companies ' existing investment plans will be coordinated .",
+    "src": "Both companies ' existing investment plans will be coordinated .",
+    "mt": "Ambas as empresas manterão seus planos de investimento existentes em coordenação.",
+    "ref": "Os planos de investimento existentes de ambas as empresas serÃ£o coordenados.",
+    "y": "neutral",
+    "model": "minicpm"
+  },
+  {
+    "id": 4,
+    "en": "Finnish newspaper publisher Sanoma , of media group SanomaWSOY , is merging its free sheets Uutislehti 100 and Metro as of mid-September 2008 to form a new free sheet to be named Metro .",
+    "src": "Finnish newspaper publisher Sanoma , of media group SanomaWSOY , is merging its free sheets Uutislehti 100 and Metro as of mid-September 2008 to form a new free sheet to be named Metro .",
+    "mt": "Editora finlandesa Sanoma, do grupo de mídia SanomaWSOY, está se combinando suas revistas gratuitas Uutislehti 100 e Metro a partir de meados de setembro de 2008 para formar uma nova revista gratuita a ser chamada Metro.",
+    "ref": "A editora de jornais finlandesa Sanoma, do grupo de mÃ­dia SanomaWSOY, estÃ¡ fundindo suas folhas gratuitas Uutislehti 100 e Metro a partir de meados de setembro de 2008 para formar uma nova folha gratuita a ser denominada Metro.",
+    "y": "neutral",
+    "model": "minicpm"
+  },
+  {
+    "id": 5,
+    "en": "Finnish beverage company Olvi is introducing a new long drink Olvi Kultalonkero ( `` golden long drink '' ) in the market in Finland in the spring of 2009 .",
+    "src": "Finnish beverage company Olvi is introducing a new long drink Olvi Kultalonkero ( `` golden long drink '' ) in the market in Finland in the spring of 2009 .",
+    "mt": "A empresa de bebidas finlandesa Olvi está a introduzir uma nova bebida de longo prazo, Olvi Kultalonkero ( 'golden long drink' ), no mercado na Finlândia na primavera de 2009.",
+    "ref": "A empresa finlandesa de bebidas Olvi estÃ¡ lanÃ§ando um novo long drink Olvi Kultalonkero (`` long drink de ouro '') no mercado da FinlÃ¢ndia na primavera de 2009.",
+    "y": "neutral",
+    "model": "minicpm"
+  },
+  {
+    "id": 6,
+    "en": "Fiskars has a strong portfolio of international brands , which include Fiskars , Iittala , Gerber , Silva and Buster .",
+    "src": "Fiskars has a strong portfolio of international brands , which include Fiskars , Iittala , Gerber , Silva and Buster .",
+    "mt": "A Fiskars possui uma forte carteira de marcas internacionais, que incluem Fiskars, Iittala, Gerber, Silva e Buster.",
+    "ref": "A Fiskars possui um forte portfÃ³lio de marcas internacionais, que incluem Fiskars, Iittala, Gerber, Silva e Buster.",
+    "y": "positive",
+    "model": "minicpm"
+  },
+  {
+    "id": 7,
+    "en": "The Dutch broker noted that Nokian Tyres reported a good first quarter in 2006 , above or in line with consensus .",
+    "src": "The Dutch broker noted that Nokian Tyres reported a good first quarter in 2006 , above or in line with consensus .",
+    "mt": "O broker holandês observou que a Nokian Tyres apresentou um bom primeiro trimestre de 2006, acima ou em linha com o consenso.",
+    "ref": "O corretor holandÃªs observou que a Nokian Tyres relatou um bom primeiro trimestre em 2006, acima ou em linha com o consenso.",
+    "y": "positive",
+    "model": "minicpm"
+  },
+  {
+    "id": 8,
+    "en": "Both loans will be used to finance strategic investments such as shopping center redevelopment projects and refinancing of maturing debt .",
+    "src": "Both loans will be used to finance strategic investments such as shopping center redevelopment projects and refinancing of maturing debt .",
+    "mt": "Ambos os empréstimos serão utilizados para financiar investimentos estratégicos, como reurbanização de centers comerciais e refinanciamento de dívidas vencidas.",
+    "ref": "Ambos os emprÃ©stimos serÃ£o usados para financiar investimentos estratÃ©gicos, como projetos de reforma de shopping centers e refinanciamento de dÃ­vidas vincendas.",
+    "y": "positive",
+    "model": "minicpm"
+  },
+  {
+    "id": 9,
+    "en": "The company said that its comparable operating profit for the January-June period fell short of last year 's corresponding performance .",
+    "src": "The company said that its comparable operating profit for the January-June period fell short of last year 's corresponding performance .",
+    "mt": "A empresa disse que seu lucro operacional comparável para o período de janeiro a junho caiu em relação ao desempenho correspondente do ano anterior.",
+    "ref": "A empresa disse que seu lucro operacional comparÃ¡vel para o perÃ­odo de janeiro a junho ficou aquÃ©m do desempenho correspondente do ano passado.",
+    "y": "negative",
+    "model": "minicpm"
+  },
+  {
+    "id": 10,
+    "en": "With the U.S. Federal Government putting a stake in the ground , vendors - and their customers - are focused on meeting the deadline .",
+    "src": "With the U.S. Federal Government putting a stake in the ground , vendors - and their customers - are focused on meeting the deadline .",
+    "mt": "Com o U.S. Federal Government colocando uma pegada no chão, fornecedores - e seus clientes - estão focados em cumprir o prazo.",
+    "ref": "Com o Governo Federal dos Estados Unidos apostando no terreno, os fornecedores - e seus clientes - estÃ£o focados em cumprir o prazo.",
+    "y": "neutral",
+    "model": "minicpm"
+  },
+  {
+    "id": 11,
+    "en": "Orion Pharma 's operating profit increased by 42.5 % from 2004 .",
+    "src": "Orion Pharma 's operating profit increased by 42.5 % from 2004 .",
+    "mt": "O lucro operacional da Orion Pharma aumentou 42,5% em relação a 2004.",
+    "ref": "O lucro operacional da Orion Pharma aumentou 42,5% em relaÃ§Ã£o a 2004.",
+    "y": "positive",
+    "model": "minicpm"
+  },
+  {
+    "id": 12,
+    "en": "Operating profit rose to EUR 103.4 mn from EUR 23.2 in the corresponding period in 2006 .",
+    "src": "Operating profit rose to EUR 103.4 mn from EUR 23.2 in the corresponding period in 2006 .",
+    "mt": "O lucro operacional subiu para 103,4 milhões de euros, ante 23,2 milhões de euros, no período correspondente de 2006.",
+    "ref": "O lucro operacional aumentou para 103,4 milhÃµes de euros de 23,2 milhÃµes de euros no perÃ­odo correspondente em 2006.",
+    "y": "positive",
+    "model": "minicpm"
+  },
+  {
+    "id": 13,
+    "en": "Kalmar has been awarded a new 5-year contract to supply its Rough Terrain Container Handler RTCH .",
+    "src": "Kalmar has been awarded a new 5-year contract to supply its Rough Terrain Container Handler RTCH .",
+    "mt": "Kalmar recebeu um novo contrato de 5 anos para fornecer seu Rough Terrain Container Handler RTCH.",
+    "ref": "A Kalmar recebeu um novo contrato de 5 anos para fornecer seu Rough Terrain Container Handler RTCH.",
+    "y": "positive",
+    "model": "minicpm"
+  },
+  {
+    "id": 14,
+    "en": "We are very pleased with the fine co-operation between the two countries in recent times , he said .",
+    "src": "We are very pleased with the fine co-operation between the two countries in recent times , he said .",
+    "mt": "Estamos muito satisfeitos com a boa cooperação entre os dois países nos últimos tempos, disse ele.",
+    "ref": "Estamos muito satisfeitos com a excelente cooperaÃ§Ã£o entre os dois paÃ­ses nos Ãºltimos tempos, disse ele.",
+    "y": "positive",
+    "model": "minicpm"
+  },
+  {
+    "id": 15,
+    "en": "Nokia said the outcome was a `` fair and responsible social plan . ''",
+    "src": "Nokia said the outcome was a `` fair and responsible social plan . ''",
+    "mt": "A Nokia disse que o resultado foi um `` plano social justo e responsável ''.",
+    "ref": "A Nokia disse que o resultado foi um \"plano social justo e responsÃ¡vel. ''",
+    "y": "neutral",
+    "model": "minicpm"
+  },
+  {
+    "id": 16,
+    "en": "The terms and conditions of the Stock Option Scheme 2008 are available on the Company 's internet pages www.sanoma.com .",
+    "src": "The terms and conditions of the Stock Option Scheme 2008 are available on the Company 's internet pages www.sanoma.com .",
+    "mt": "As condições de termo do Plano de Opções de Valores 2008 estão disponíveis nas páginas da internet da Empresa www.sanoma.com .",
+    "ref": "Os termos e condiÃ§Ãµes do Esquema de OpÃ§Ã£o de Compra de AÃ§Ãµes 2008 estÃ£o disponÃ­veis nas pÃ¡ginas da Internet da Companhia em www.sanoma.com.",
+    "y": "neutral",
+    "model": "minicpm"
+  },
+  {
+    "id": 17,
+    "en": "In the second quarter of 2010 , the group 's net profit rose to EUR3 .1 m from EUR2 .5 m in April-June 2009 .",
+    "src": "In the second quarter of 2010 , the group 's net profit rose to EUR3 .1 m from EUR2 .5 m in April-June 2009 .",
+    "mt": "No segundo trimestre de 2010, o lucro líquido do grupo subiu para EUR3.1m a partir de EUR2.5m em abril a junho de 2009.",
+    "ref": "No segundo trimestre de 2010, o lucro lÃ­quido do grupo aumentou para EUR 3,1 milhÃµes de EUR 2,5 milhÃµes em abril-junho de 2009.",
+    "y": "positive",
+    "model": "minicpm"
+  },
+  {
+    "id": 18,
+    "en": "It generated an operating loss of EUR 96.3 mn , down from a profit of EUR 43.9 mn .",
+    "src": "It generated an operating loss of EUR 96.3 mn , down from a profit of EUR 43.9 mn .",
+    "mt": "Ganhou uma perda operacional de EUR 96,3m, em comparação com um lucro de EUR 43,9m.",
+    "ref": "Gerou um prejuÃ­zo operacional de EUR 96,3 milhÃµes, ante um lucro de EUR 43,9 milhÃµes.",
+    "y": "negative",
+    "model": "minicpm"
+  },
+  {
+    "id": 19,
+    "en": "The deal was worth about EUR 1.2 mn .",
+    "src": "The deal was worth about EUR 1.2 mn .",
+    "mt": "O acordo valia cerca de 1,2 milhões de euros.",
+    "ref": "O negÃ³cio foi avaliado em cerca de 1,2 milhÃµes de euros.",
+    "y": "neutral",
+    "model": "minicpm"
+  }
+]
