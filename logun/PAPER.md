@@ -69,7 +69,7 @@ with a script running on each run to verify the latency stats from each model
 
 for size optimization matters, the researcher extracted the cvm fillings from 2003 - 2020, totalling about 122gb, which, when passed through the prepare.py for dedup and chunking for the final corpus totalled about 6.75gb of corpus data. Ill later on run the scraper on 2021 - 2026 data for a improved corpus, right now, the corpus contains 2.35B tokens.
 
-according to dapt papers, the sweetspot for tokens on dapt is about 250M, which will be used as input for the split.py script, this sums to about 2days in continuous training in the 1660super at 3 epochs. The dapt script will use MLM on LoRa for efficient VRAM usage for the newly trained model.
+according to dapt papers, the sweetspot for tokens on dapt is about 250M, which will be used as input for the split.py script, this sums to about 2days in continuous training in the 1660super at 1.5 epochs. The dapt script will use MLM on LoRa for efficient VRAM usage for the newly trained model.
 
 We select DAPT data with DSIR (Xie et al. 2023): hashed uni+bigram features in 10k buckets estimate target vs. source distributions, each chunk is scored by its importance weight, and we keep the top chunks up to 250M tokens. Unlike keyword lists, it catches paraphrases; unlike classifier or embedding filters, it needs no training, no GPU, and no language model, minutes on CPU. Selection quality is known before training: the KL cut (0.0769 -> 0.0534) predicts downstream F1 with r = 0.82.
 
@@ -155,7 +155,7 @@ compared to minicpm5 without dspark, lfm 2.5 8a1b is about 41% faster across a 3
 
 A benchmark to evaluate the best performer language model for translation was setup, with the usage of Unbabel/wmt22-cometkiwi-da, the two candidate models (lfm 2.5 and minicpm5) were submitted to a sample of ~200 examples of texts from the financial phrasebank, that were then scored by COMET, returning a result of:
   lfm 2.5 8a1b: 0.5904
-  minicpm5 2b: 0.8523
+  minicpm5 2b: 0.7823
 
 locking minicpm5 as the preferred option for translation even tho it is about 41% slower
 

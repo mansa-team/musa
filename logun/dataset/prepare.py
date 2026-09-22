@@ -46,7 +46,7 @@ def clean_text(text):
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
-def chunk_text(text, chunk_size=1800, overlap=200):
+def chunk_text(text, chunk_size=8192, overlap=200):
     if len(text) <= chunk_size:
         return [text]
 
