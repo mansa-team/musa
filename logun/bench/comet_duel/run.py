@@ -21,10 +21,6 @@ CONFIG = yaml.safe_load((Path(__file__).resolve().parent.parent.parent / "config
 
 
 URL = f"http://{CONFIG['llm']['host']}:{CONFIG['llm']['port']}"
-
-
-def _gguf(rel):
-    return os.path.normpath(os.path.join(LOGUN_DIR, rel))
 MODELS_FILE = os.path.join(LOGUN_DIR, "models.json")
 LAUNCH = os.path.join(LOGUN_DIR, "inference", "launch.py")
 RESULTS = os.path.join(SCRIPT_DIR, "results")
@@ -80,7 +76,7 @@ def main(argv: list = None) -> None:
         clean = os.path.join(RESULTS, f"{name}_clean.json")
         scores = os.path.join(RESULTS, f"{name}_scores.json")
         if not (args.resume and os.path.exists(raw)):
-            run([sys.executable, LAUNCH, "--model", _gguf(m["gguf"])] + m.get("flags", []))
+            run([sys.executable, LAUNCH, "--model", os.path.normpath(os.path.join(LOGUN_DIR, m["gguf"]))] + m.get("flags", []))
             try:
                 wait_healthy()
                 translate_run({"url": URL, "samples": args.samples,

@@ -15,10 +15,6 @@ LOGUN_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, ".."))
 
 CONFIG = yaml.safe_load((Path(__file__).resolve().parent.parent / "config.yaml").read_text(encoding="utf-8"))
 URL = f"http://{CONFIG['llm']['host']}:{CONFIG['llm']['port']}"
-
-
-def _gguf(rel):
-    return os.path.normpath(os.path.join(LOGUN_DIR, rel))
 MODELS_FILE = os.path.join(LOGUN_DIR, "models.json")
 LAUNCH = os.path.join(SCRIPT_DIR, "launch.py")
 RESULTS = os.path.join(SCRIPT_DIR, "results")
@@ -56,7 +52,7 @@ if __name__ == "__main__":
     table = []
     for m in models:
         out = os.path.join(RESULTS, f"speed_{m['name']}.json")
-        run([sys.executable, LAUNCH, "--model", _gguf(m["gguf"])] + m.get("flags", []))
+        run([sys.executable, LAUNCH, "--model", os.path.normpath(os.path.join(LOGUN_DIR, m["gguf"]))] + m.get("flags", []))
         try:
             wait_healthy()
             cmd = [sys.executable, os.path.join(SCRIPT_DIR, "measure.py"), "--out", out]

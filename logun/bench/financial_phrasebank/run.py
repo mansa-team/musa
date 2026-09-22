@@ -17,10 +17,6 @@ CONFIG = yaml.safe_load((Path(__file__).resolve().parent.parent.parent / "config
 
 
 URL = f"http://{CONFIG['llm']['host']}:{CONFIG['llm']['port']}"
-
-
-def _gguf(rel):
-    return os.path.normpath(os.path.join(LOGUN_DIR, rel))
 MODELS_FILE = os.path.join(LOGUN_DIR, "models.json")
 LAUNCH = os.path.join(LOGUN_DIR, "inference", "launch.py")
 
@@ -78,7 +74,7 @@ if __name__ == "__main__":
         slug = m["name"]
         try:
             print("+ launch " + slug, flush=True)
-            subprocess.run([sys.executable, LAUNCH, "--model", _gguf(m["gguf"])] + m.get("flags", []), check=True)
+            subprocess.run([sys.executable, LAUNCH, "--model", os.path.normpath(os.path.join(LOGUN_DIR, m["gguf"]))] + m.get("flags", []), check=True)
             try:
                 wait_healthy()
                 probe = scoreWithGenerate(lambda p, url=endpoint: llmGenerate(p, url), texts, labels)
