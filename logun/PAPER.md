@@ -153,6 +153,11 @@ qwen 3.5 4b: {"toksPerSec":66.69,"vramMiB":4547,"sane":true,"nPredict":128,"temp
 
 compared to minicpm5 without dspark, lfm 2.5 8a1b is about 41% faster across a 366gb/s gpu, the comparasions were made in the 1660super, which would yield a similar result in the t4 due to their bandwidth being similar 336gb/s vs 320gb/s and inferece being bandwidth bound. The performance is being questionable with dspark and mtp mostly because im being vram limited, for tests like the one with qwen 3.5 4b mtp the model improved its performance with mtp, while the ones using dspark got a noticiable drop, the reserachers theory is that since the drafter from dspark is a separate model rather the ones from mtp, the vram increase crashes from the gpu, with it having to offload part of its layers to the system ram, also low acceptance rates from the drafters could further help slowdown inference when using dspark, but further research would be needed and is not the main topic from this paper.
 
+A benchmark to evaluate the best performer language model for translation was setup, with the usage of Unbabel/wmt22-cometkiwi-da, the two candidate models (lfm 2.5 and minicpm5) were submitted to a sample of ~200 examples of texts from the financial phrasebank, that were then scored by COMET, returning a result of:
+  lfm 2.5 8a1b: 0.5904
+  minicpm5 2b: 0.8523
+
+locking minicpm5 as the preferred option for translation even tho it is about 41% slower
 
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
