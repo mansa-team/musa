@@ -8,7 +8,7 @@ import time
 import urllib.request
 
 from translate import run as translate_run
-from score_comet import run as score_run
+from score import run as score_run
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGUN_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, "..", ".."))
@@ -49,7 +49,7 @@ def paired(first: list, second: list) -> dict:
 
 def main(argv: list = None) -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--samples", default=os.path.join(SCRIPT_DIR, "samples220.json"))
+    parser.add_argument("--samples", default=os.path.join(SCRIPT_DIR, "samples.json"))
     parser.add_argument("--only", default="")
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args(argv)
