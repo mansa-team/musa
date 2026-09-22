@@ -48,15 +48,10 @@ try:
             raise ValueError("missing value for --out")
         outPath = args[outIdx + 1]
     promptText, promptSrc = PROMPT, "default"
-    if "--prompt" in args:
-        promptIdx = args.index("--prompt")
-        if promptIdx + 1 >= len(args):
-            raise ValueError("missing value for --prompt")
-        promptText, promptSrc = args[promptIdx + 1], "custom"
-    # ponytail: /completion string prompt is already the raw path (verified: /tokenize returns 68 tokens,
-    # exactly the server prompt-eval count, on stock b10944 with no --chat-template flags), so --no-template
-    # asserts that path and records it; pair with --prompt plain text for chat-tuned models like MiniCPM5.
-    noTemplate = "--no-template" in args
+    # ponytail: /completion string prompt is always the raw path (verified: /tokenize returns 68 tokens,
+    # exactly the server prompt-eval count, on stock b10944 with no --chat-template flags), so the built-in
+    # PROMPT is sent as-is and promptSrc/noTemplate are recorded as constants.
+    noTemplate = True
     print("warmup request sent")
     postOnce(promptText)  # run 1: first-touch warmup, discarded
     print("measured request sent")
@@ -74,8 +69,6 @@ try:
         "nPredict": N_PREDICT,
         "temperature": TEMPERATURE,
         "url": URL,
-        "promptSrc": promptSrc,
-        "noTemplate": noTemplate,
     }
     line = json.dumps(result, separators=(",", ":"),)
     with open(outPath, "w", encoding="utf-8",) as handle:

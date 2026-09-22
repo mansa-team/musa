@@ -1,0 +1,12 @@
+[
+  {
+    "name": "lfm",
+    "gguf": "D:/Repositories/research/logun/models/LFM2.5-8B-A1B-Q4_0.gguf",
+    "flags": ["--jinja", "-c", "8192"]
+  },
+  {
+    "name": "minicpm",
+    "gguf": "D:/Repositories/research/logun/models/MiniCPM5-2B-Q4_K_M.gguf",
+    "flags": ["--jinja", "-c", "8192"]
+  }
+]

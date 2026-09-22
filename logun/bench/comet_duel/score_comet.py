@@ -1,4 +1,3 @@
-import argparse
 import glob
 import json
 import os
@@ -16,20 +15,23 @@ import torch
 from comet import download_model, load_from_checkpoint
 from comet.models.download_utils import available_legacy_metrics, download_model_legacy
 
-# PAPER.md gate stays Unbabel/wmt22-cometkiwi-da once HF access is granted for
-# account heitorrosa; default below is the ungated apache-2.0 fallback.
-DEFAULT_MODEL_ID = "Unbabel/wmt20-comet-qe-da"
+# PAPER.md gate scorer; checkpoint cached under logun/models (see resolver below).
+DEFAULT_MODEL_ID = "Unbabel/wmt22-cometkiwi-da"
+# Standalone use: edit model_name only; in/out default to results/<model_name>_clean.json etc.
+CONFIG = {"model_name": "lfm",
+          "in": None,
+          "out": None,
+          "model_id": DEFAULT_MODEL_ID}
 
 
-def main(argv: list = None) -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--in", dest="inp", required=True)
-    parser.add_argument("--out", required=True)
-    parser.add_argument("--model", default=DEFAULT_MODEL_ID)
-    args = parser.parse_args(argv)
-    with open(args.inp, "r", encoding="utf-8") as handle:
+def run(cfg: dict) -> None:
+    name = cfg.get("model_name", "lfm")
+    inp = cfg.get("in") or os.path.join(SCRIPT_DIR, "results", name + "_clean.json")
+    out_path = cfg.get("out") or os.path.join(SCRIPT_DIR, "results", name + "_scores.json")
+    model_id = cfg.get("model_id", DEFAULT_MODEL_ID)
+    with open(inp, "r", encoding="utf-8") as handle:
         rows = json.load(handle)
-    short = args.model.split("/")[-1]
+    short = model_id.split("/")[-1]
     # Local HF snapshot first (offline-safe, no S3): a snapshot_download of
     # e.g. Unbabel/wmt20-comet-qe-da lays down
     # models--<org>--<short>/snapshots/*/checkpoints/model.ckpt.
@@ -43,7 +45,7 @@ def main(argv: list = None) -> None:
         # explicitly into logun/models (C: cannot fit the ~2GB download).
         ckpt = download_model_legacy(short, CACHE_DIR)
     else:
-        ckpt = download_model(args.model)
+        ckpt = download_model(model_id)
     model = load_from_checkpoint(ckpt)
     data = [{"src": row["src"], "mt": row["mt"]} for row in rows]
     gpus = 1 if torch.cuda.is_available() else 0
@@ -51,10 +53,10 @@ def main(argv: list = None) -> None:
     scored = [{"id": row["id"], "score": float(score)}
               for row, score in zip(rows, scores)]
     mean = sum(row["score"] for row in scored) / len(scored) if scored else 0.0
-    with open(args.out, "w", encoding="utf-8") as handle:
+    with open(out_path, "w", encoding="utf-8") as handle:
         json.dump({"mean": mean, "rows": scored}, handle, indent=2)
-    print(f"mean={mean:.4f} n={len(scored)} -> {args.out}")
+    print(f"mean={mean:.4f} n={len(scored)} -> {out_path}")
 
 
 if __name__ == "__main__":
-    main()
+    run(CONFIG)
