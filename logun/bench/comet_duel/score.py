@@ -16,7 +16,6 @@ import torch
 from comet import download_model, load_from_checkpoint
 from comet.models.download_utils import available_legacy_metrics, download_model_legacy
 
-# PAPER.md gate scorer; checkpoint cached under logun/models (see resolver below).
 DEFAULT_MODEL_ID = "Unbabel/wmt22-cometkiwi-da"
 
 
@@ -28,17 +27,13 @@ def run(cfg: dict) -> None:
     with open(inp, "r", encoding="utf-8") as handle:
         rows = json.load(handle)
     short = model_id.split("/")[-1]
-    # Local HF snapshot first (offline-safe, no S3): a snapshot_download of
-    # e.g. Unbabel/wmt20-comet-qe-da lays down
-    # models--<org>--<short>/snapshots/*/checkpoints/model.ckpt.
+
     local = glob.glob(os.path.join(
         CACHE_DIR, f"models--*--{short}", "snapshots", "*",
         "checkpoints", "model.ckpt"))
     if local:
         ckpt = sorted(local)[0]
     elif short in available_legacy_metrics:
-        # Legacy S3 tarball (e.g. wmt20-comet-qe-da): ignores HF_HOME, so route
-        # explicitly into logun/models (C: cannot fit the ~2GB download).
         ckpt = download_model_legacy(short, CACHE_DIR)
     else:
         ckpt = download_model(model_id)

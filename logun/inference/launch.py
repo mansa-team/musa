@@ -7,7 +7,6 @@ SERVER_EXE = os.path.normpath(os.path.join(HERE, "llamacpp-bin", "llama-server.e
 LOG = os.path.join(HERE, "server.log")
 PIDFILE = os.path.join(HERE, "server.pid")
 
-# ponytail: manual argv, no argparse — this script only launches or stops.
 if len(sys.argv) > 1 and sys.argv[1] == "stop":
     with open(PIDFILE) as f:
         pid = f.read().strip()

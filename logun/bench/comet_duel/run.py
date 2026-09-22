@@ -17,8 +17,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGUN_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, "..", ".."))
 
 
-CONFIG = yaml.safe_load(
-    (Path(__file__).resolve().parent.parent.parent / "config.yaml").read_text(encoding="utf-8"))
+CONFIG = yaml.safe_load((Path(__file__).resolve().parent.parent.parent / "config.yaml").read_text(encoding="utf-8"))
 
 
 URL = f"http://{CONFIG['llm']['host']}:{CONFIG['llm']['port']}"

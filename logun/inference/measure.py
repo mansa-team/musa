@@ -57,15 +57,11 @@ try:
         if outIdx + 1 >= len(args):
             raise ValueError("missing value for --out")
         outPath = args[outIdx + 1]
-    promptText, promptSrc = PROMPT, "default"
-    # ponytail: /completion string prompt is always the raw path (verified: /tokenize returns 68 tokens,
-    # exactly the server prompt-eval count, on stock b10944 with no --chat-template flags), so the built-in
-    # PROMPT is sent as-is and promptSrc/noTemplate are recorded as constants.
-    noTemplate = True
+        
     print("warmup request sent")
-    postOnce(promptText)  # run 1: first-touch warmup, discarded
+    postOnce(PROMPT)  # run 1: first-touch warmup, discarded
     print("measured request sent")
-    resp = postOnce(promptText)  # run 2: measured
+    resp = postOnce(PROMPT)  # run 2: measured
     text = resp.get("content", "")
     timings = resp.get("timings", {}) or {}
     predN, predMs = timings.get("predicted_n", 0), timings.get("predicted_ms", 0)
