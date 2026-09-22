@@ -157,7 +157,11 @@ A benchmark to evaluate the best performer language model for translation was se
   lfm 2.5 8a1b: 0.5904
   minicpm5 2b: 0.7823
 
-locking minicpm5 as the preferred option for translation even tho it is about 41% slower
+locking minicpm5 as the preferred option for translation even tho it is about 41% slower.
+
+the translation sft dataset consists of about 104k rows after dedup and normalization, which is plenty and more then enough for sft, covering twitter sentiments, news headlines and financial phrasebank insights that envelops this rich dataset that is going to be translated.
+
+
 
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
