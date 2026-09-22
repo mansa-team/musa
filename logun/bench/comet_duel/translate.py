@@ -1,15 +1,17 @@
 import json
 import os
+import sys
 import threading
 import urllib.request
+
+import yaml
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-# Standalone use: edit model_name only; out defaults to results/<model_name>.json.
-CONFIG = {"url": "http://127.0.0.1:8080",
-          "samples": os.path.join(SCRIPT_DIR, "samples220.json"),
-          "out": None,
-          "model_name": "lfm", "workers": 4, "temperature": 0.0}
+CONFIG = yaml.safe_load((Path(__file__).resolve().parent.parent.parent / "config.yaml").read_text(encoding="utf-8"))
+
+URL = f"http://{CONFIG['llm']['host']}:{CONFIG['llm']['port']}"
 
 SYSTEM = """
 Current system role: High-Throughput Neural Machine Translation & Financial NLP Curation Engine
@@ -85,7 +87,7 @@ def translateOne(text: str, url: str, temperature: float = 0.0) -> str:
 
 
 def run(cfg: dict) -> None:
-    url, inp = cfg["url"], cfg["samples"]
+    url, inp = cfg.get("url") or URL, cfg["samples"]
     model_name = cfg["model_name"]
     out_path = cfg.get("out") or os.path.join(SCRIPT_DIR, "results", model_name + ".json")
     workers = max(1, cfg.get("workers", 4))
@@ -129,4 +131,15 @@ def run(cfg: dict) -> None:
 
 
 if __name__ == "__main__":
-    run(CONFIG)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--url", default="")
+    parser.add_argument("--samples", default=os.path.join(SCRIPT_DIR, "samples.json"))
+    parser.add_argument("--out", default="")
+    parser.add_argument("--model-name", default="lfm")
+    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--temperature", type=float, default=0.0)
+    args = parser.parse_args()
+    run({"url": args.url, "samples": args.samples, "out": args.out or None,
+         "model_name": args.model_name, "workers": args.workers,
+         "temperature": args.temperature})

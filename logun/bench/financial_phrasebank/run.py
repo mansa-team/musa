@@ -4,13 +4,26 @@ import subprocess
 import sys
 import time
 import urllib.request
+
+import yaml
+from pathlib import Path
 from score import DEFAULT_CSV, loadDataset, scoreModel, scoreWithGenerate
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGUN_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, "..", ".."))
+
+
+CONFIG = yaml.safe_load((Path(__file__).resolve().parent.parent.parent / "config.yaml").read_text(encoding="utf-8"))
+
+
+URL = f"http://{CONFIG['llm']['host']}:{CONFIG['llm']['port']}"
+
+
+def _gguf(rel):
+    return os.path.normpath(os.path.join(LOGUN_DIR, rel))
 MODELS_FILE = os.path.join(LOGUN_DIR, "models.json")
 LAUNCH = os.path.join(LOGUN_DIR, "inference", "launch.py")
-URL = "http://127.0.0.1:8080"
+
 SKIP_LLMS = False
 
 MODELS = [
@@ -65,7 +78,7 @@ if __name__ == "__main__":
         slug = m["name"]
         try:
             print("+ launch " + slug, flush=True)
-            subprocess.run([sys.executable, LAUNCH, "--model", m["gguf"]] + m.get("flags", []), check=True)
+            subprocess.run([sys.executable, LAUNCH, "--model", _gguf(m["gguf"])] + m.get("flags", []), check=True)
             try:
                 wait_healthy()
                 probe = scoreWithGenerate(lambda p, url=endpoint: llmGenerate(p, url), texts, labels)

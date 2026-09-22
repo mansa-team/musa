@@ -3,12 +3,20 @@ import json
 import os
 import random
 
+import yaml
+from pathlib import Path
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-IN_CSV = os.path.normpath(os.path.join(
-    SCRIPT_DIR, "..", "financial_phrasebank", "financial_phrase_bank_pt_br.csv"))
+
+
+CONFIG = yaml.safe_load(
+    (Path(__file__).resolve().parent.parent.parent / "config.yaml").read_text(encoding="utf-8"))
+
+
+SEED = CONFIG["seed"]
+IN_CSV = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "financial_phrasebank", "financial_phrase_bank_pt_br.csv"))
 OUT = os.path.join(SCRIPT_DIR, "samples.json")
 N = 20
-SEED = 42
 
 
 def sample(csvPath: str = None, n: int = N, seed: int = SEED) -> list:

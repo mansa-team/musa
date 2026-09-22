@@ -1,3 +1,4 @@
+import argparse
 import glob
 import json
 import os
@@ -17,11 +18,6 @@ from comet.models.download_utils import available_legacy_metrics, download_model
 
 # PAPER.md gate scorer; checkpoint cached under logun/models (see resolver below).
 DEFAULT_MODEL_ID = "Unbabel/wmt22-cometkiwi-da"
-# Standalone use: edit model_name only; in/out default to results/<model_name>_clean.json etc.
-CONFIG = {"model_name": "lfm",
-          "in": None,
-          "out": None,
-          "model_id": DEFAULT_MODEL_ID}
 
 
 def run(cfg: dict) -> None:
@@ -59,4 +55,11 @@ def run(cfg: dict) -> None:
 
 
 if __name__ == "__main__":
-    run(CONFIG)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--in", dest="inp", default="")
+    parser.add_argument("--out", default="")
+    parser.add_argument("--model-name", default="lfm")
+    parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
+    args = parser.parse_args()
+    run({"in": args.inp or None, "out": args.out or None,
+         "model_name": args.model_name, "model_id": args.model_id})

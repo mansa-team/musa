@@ -7,14 +7,27 @@ import sys
 import time
 import urllib.request
 
+import yaml
+from pathlib import Path
+
 from translate import run as translate_run
 from score import run as score_run
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGUN_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, "..", ".."))
+
+
+CONFIG = yaml.safe_load(
+    (Path(__file__).resolve().parent.parent.parent / "config.yaml").read_text(encoding="utf-8"))
+
+
+URL = f"http://{CONFIG['llm']['host']}:{CONFIG['llm']['port']}"
+
+
+def _gguf(rel):
+    return os.path.normpath(os.path.join(LOGUN_DIR, rel))
 MODELS_FILE = os.path.join(LOGUN_DIR, "models.json")
 LAUNCH = os.path.join(LOGUN_DIR, "inference", "launch.py")
-URL = "http://127.0.0.1:8080"
 RESULTS = os.path.join(SCRIPT_DIR, "results")
 SCORER = "Unbabel/wmt22-cometkiwi-da"
 
@@ -68,7 +81,7 @@ def main(argv: list = None) -> None:
         clean = os.path.join(RESULTS, f"{name}_clean.json")
         scores = os.path.join(RESULTS, f"{name}_scores.json")
         if not (args.resume and os.path.exists(raw)):
-            run([sys.executable, LAUNCH, "--model", m["gguf"]] + m.get("flags", []))
+            run([sys.executable, LAUNCH, "--model", _gguf(m["gguf"])] + m.get("flags", []))
             try:
                 wait_healthy()
                 translate_run({"url": URL, "samples": args.samples,

@@ -1,6 +1,16 @@
 import os
 
+import yaml
+from pathlib import Path
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+CONFIG = yaml.safe_load(
+    (Path(__file__).resolve().parent.parent.parent / "config.yaml").read_text(encoding="utf-8"))
+
+
+SEED = CONFIG["seed"]
 CACHE_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "models"))
 os.makedirs(CACHE_DIR, exist_ok=True)
 os.environ["HF_HUB_CACHE"] = CACHE_DIR
@@ -20,7 +30,6 @@ load_dotenv()
 
 TOKEN = os.environ.get("HF_TOKEN")
 DEFAULT_CSV = os.path.join(SCRIPT_DIR, "financial_phrase_bank_pt_br.csv")
-SEED = 42
 TRAIN_FRAC = 0.8
 N_CLASSES = 3
 PROBE_C = 1.0

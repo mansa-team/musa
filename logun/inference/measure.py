@@ -4,13 +4,23 @@ import subprocess
 import sys
 import urllib.request
 
+import yaml
+from pathlib import Path
+
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+CONFIG = yaml.safe_load(
+    (Path(__file__).resolve().parent.parent / "config.yaml").read_text(encoding="utf-8"))
+
+
+URL = f"http://{CONFIG['llm']['host']}:{CONFIG['llm']['port']}"
 PROMPT = (
     "O Banco Central manteve a taxa Selic em dois digitos e o mercado de juros futuros "
     "reagiu com alta nos vencimentos longos enquanto a bolsa recuou com bancos e varejo "
     "liderando as perdas do dia diante do pessimismo externo sobre inflacao e credito."
 )
-URL = "http://127.0.0.1:8080/completion"
+URL += "/completion"
 N_PREDICT = 128
 TEMPERATURE = 0
 DEFAULT_OUT = os.path.join(HERE, "last-measure.json")

@@ -1,5 +1,9 @@
 seed: 42
 
+llm:
+  host: 127.0.0.1
+  port: 8080
+
 scraper:
   years: 2003-2026
   max_workers: 8
