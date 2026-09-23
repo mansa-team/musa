@@ -161,7 +161,13 @@ locking minicpm5 as the preferred option for translation even tho it is about 41
 
 the translation sft dataset consists of about 104k rows after dedup and normalization, which is plenty and more then enough for sft, covering twitter sentiments, news headlines and financial phrasebank insights that envelops this rich dataset that is going to be translated.
 
+sentiment
+positive    45408
+neutral     32313
+negative    26414
+Name: count, dtype: int64
 
+the dataset is also well distributed, with no specific label taking over in it's composition.
 
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
