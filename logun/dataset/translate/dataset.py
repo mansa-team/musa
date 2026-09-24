@@ -83,4 +83,4 @@ dataset["norm"] = norm(dataset["source"])
 
 dataset = dataset[~dataset["norm"].isin(eval)].drop(columns=["norm"]).reset_index(drop=True)
 
-print(dataset)
+dataset.to_csv(os.path.join(SCRIPT_DIR, "clean.csv"), index=False, encoding="utf-8")
