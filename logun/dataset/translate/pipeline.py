@@ -17,7 +17,10 @@ def main(argv=None):
     parser.add_argument("--max-rows", type=int, default=None)
     args = parser.parse_args(argv)
     in_path = os.path.join(SCRIPT_DIR, "clean.parquet")
-    translated = os.path.join(SCRIPT_DIR, "translated.jsonl")
+    suffix = "_test" if args.max_rows else ""
+    translated = os.path.join(SCRIPT_DIR, "translated%s.jsonl" % suffix)
+    scored = os.path.join(SCRIPT_DIR, "scored%s.jsonl" % suffix)
+    retry = os.path.join(SCRIPT_DIR, "retry%s.jsonl" % suffix)
     final_out = os.path.join(SCRIPT_DIR, "final.jsonl")
     for path in (in_path, ENDPOINT_FILE):
         if not os.path.exists(path):
@@ -37,11 +40,10 @@ def main(argv=None):
     if os.path.exists(qpath):
         print("pipeline: quarantined rows present (see %s) - continuing with translated rows" % qpath)
     rc = None
-    scored = os.path.join(SCRIPT_DIR, "scored.jsonl")
     scores_arg = []
     try:
         from rescore import run as run_rescore, DEFAULT_MODEL_ID as KIWI_ID
-        run_rescore(translated, scored, os.path.join(SCRIPT_DIR, "retry.jsonl"), 0.5, KIWI_ID)
+        run_rescore(translated, scored, retry, 0.5, KIWI_ID)
         scores_arg = ["--scores", scored]
     except Exception as exc:
         print("pipeline: rescore failed (%s) - continuing with null quality" % exc, file=sys.stderr)

@@ -54,12 +54,58 @@ def loadEndpoints():
     return []
 
 
+SYSTEM = """
+Current system role: High-Throughput Neural Machine Translation & Financial NLP Curation Engine
+
+You are a specialized Neural Machine Translation (NMT) and Financial NLP Curation Engine built to prepare synthetic financial parallel corpora for domain-adaptive pre-training (DAPT) and supervised fine-tuning (SFT) of Portuguese language models. You operate with absolute semantic fidelity, zero information loss, and strict compliance with Brazilian capital markets terminology (B3, CVM, ANBIMA).
+
+## Mission & Core Curation Principles
+
+- ABSOLUTE ENTITY PRESERVATION: Named entities (corporations, executives, regulatory bodies, geographic regions, ticker symbols) are sacred. Omitting, truncating, or summarizing an entity destroys downstream token-alignment for classification and NER models. Every entity in <source> MUST have its exact equivalent in <translation>.
+- SATELLITE CONTEXT INTEGRITY: Temporal qualifiers ("Q3 2024", "as of mid-September", "YoY"), percentage points, basis points, and currency values carry directional weight. Stripping timeframe qualifiers is treated as a critical execution failure.
+- SEMANTIC DIRECTIONALITY: Financial sentiment is fragile. Never flip directional sentiment. "Prejuízo" (loss) and "Lucro" (profit) are non-interchangeable; mistranslating directional movement ("rose", "fell", "stagnated") corrupts downstream classification data.
+- TERMINOLOGICAL RIGOR: Use institutional Brazilian Portuguese capital markets jargon (e.g., use "prejuízo operacional" instead of "perda operacional"; "oferta pública inicial" instead of "primeira venda de ações"; "reagrupamento/inplit" for reverse splits).
+- ZERO PREAMBLE / ZERO METADATA: You operate in an automated data pipeline. Output ONLY the translated target text enclosed inside <translation> tags. Never output conversational responses, explanations, reasoning tags (<think>), or markdown formatting outside the designated tags.
+
+## Operational Execution Guidelines
+
+1. EXACT FORMATTING PRESERVATION:
+   - Currency formats: Preserve monetary units (e.g., "EUR3.1m" -> "EUR 3,1m" or "3,1 milhões de euros"; "R$ 50M" -> "R$ 50M").
+   - Percentages & Decimals: Convert English decimal dots to Brazilian decimal commas where appropriate (e.g., "42.5%" -> "42,5%").
+   - Tickers & Proper Nouns: Keep original corporate names and tickers intact (e.g., "SanomaWSOY", "AFX", "PETR4"). Never attempt to translate proper corporate names into Portuguese unless an official localized brand exists.
+
+2. IDIOM & STYLISTIC ADAPTATION:
+   - Translate financial idioms by semantic intent, not verbatim literalism.
+   - Example: "putting a stake in the ground" -> "definindo um posicionamento/marco firme" (NOT "colocando uma estaca no chão" or "participação nos trinta").
+   - Example: "fell short of expectations" -> "ficou aquém das expectativas" or "veio abaixo do consenso".
+
+3. HARD CONSTRAINTS & FAILURE MODES TO AVOID:
+   - DO NOT truncate long trailing clauses or multi-sentence paragraphs.
+   - DO NOT drop company names even if they appear redundant in the prompt.
+   - DO NOT add quotation marks around the translated output unless present in the source text.
+   - DO NOT echo back the English source text.
+
+## Structural Input/Output Contract
+
+Input will always be supplied inside <source> tags.
+Output MUST strictly follow this exact syntax structure:
+
+<translation>
+[Translated text in flawless Brazilian Portuguese financial terminology]
+</translation>
+"""
+PREFILL_TAG = "<translation>"
+
+
 def translateOne(text, endpoint, temperature=0.0):
     body = json.dumps({
-        "messages": [{"role": "user", "content": text}],
+        "messages": [{"role": "system", "content": SYSTEM},
+                     {"role": "user", "content": "<source>%s</source>" % text},
+                     {"role": "assistant", "content": PREFILL_TAG}],
         "temperature": temperature,
-        "n_predict": min(256, max(128, 4 * len(text.split()))),
+        "n_predict": max(128, 4 * len(text.split())),
         "stream": False,
+        "stop": ["</translation>"],
     }).encode()
     req = urllib.request.Request(
         endpoint.rstrip("/") + "/v1/chat/completions",
@@ -69,6 +115,10 @@ def translateOne(text, endpoint, temperature=0.0):
     with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
         payload = json.loads(resp.read().decode())
     content = payload["choices"][0]["message"].get("content") or ""
+    if "<translation>" in content:
+        content = content.split("<translation>", 1)[1]
+    if "</translation>" in content:
+        content = content.split("</translation>", 1)[0]
     return content.strip(), payload.get("usage") or {}
 
 
@@ -121,7 +171,7 @@ def run(in_path, out_path, workers, timeout=120, max_rows=None):
     if max_rows:
         rows = rows[:max_rows]
     total = len(rows)
-    print("todo %d/%d (skipping %d done)" % (total, len(frame), len(frame) - total), flush=True)
+    print("todo %d/%d (resumed %d, capped to %s)" % (total, len(frame), len(done), max_rows), flush=True)
     qpath = os.path.join(os.path.dirname(os.path.abspath(out_path)), "quarantine.jsonl")
     mpath = os.path.join(os.path.dirname(os.path.abspath(out_path)), "metrics.jsonl")
     todo = queue.Queue()
@@ -131,6 +181,7 @@ def run(in_path, out_path, workers, timeout=120, max_rows=None):
     metrics_q = queue.Queue()
     count = 0
     quarantined = 0
+    empties = []
     estate = {"endpoints": loadEndpoints(), "loaded": time.monotonic(), "health": {}}
     if not estate["endpoints"]:
         raise RuntimeError("no endpoints configured (edit %s)" % ENDPOINT_FILE)
@@ -239,6 +290,8 @@ def run(in_path, out_path, workers, timeout=120, max_rows=None):
                             flushMetrics()
                             continue
                 count += 1
+                if not (record.get("translated") or "").strip():
+                    empties.append(record.get("source", ""))
                 if count % 50 == 0 or count == total:
                     print("progress %d/%d" % (count, total), flush=True)
                 flushMetrics()
@@ -257,6 +310,9 @@ def run(in_path, out_path, workers, timeout=120, max_rows=None):
         flushMetrics()
     mhandle.close()
     print("wrote %s (%d quarantined -> %s)" % (out_path, quarantined, qpath), flush=True)
+    print("empty=%d" % len(empties), flush=True)
+    for src in empties[:3]:
+        print("empty-src: %s" % str(src)[:200], flush=True)
     print("metrics -> %s" % mpath, flush=True)
 
 

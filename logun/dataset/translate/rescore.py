@@ -70,7 +70,7 @@ def run(inp, out_path, retry_path, threshold, model_id):
             retry.append(rows[i])
     with open(retry_path, "w", encoding="utf-8") as handle:
         for r in retry:
-            handle.write(json.dumps({"source": r["source"],
+            handle.write(json.dumps({"idx": r.get("idx"), "source": r["source"],
                                      "dataset": r.get("dataset", "")},
                                     ensure_ascii=False) + "\n")
     mean = sum(scores) / len(scores) if scores else 0.0
