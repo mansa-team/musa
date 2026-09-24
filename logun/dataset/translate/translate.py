@@ -111,13 +111,15 @@ def loadDone(out_path):
     return done
 
 
-def run(in_path, out_path, workers, timeout=120):
+def run(in_path, out_path, workers, timeout=120, max_rows=None):
     global TIMEOUT
     TIMEOUT = timeout
     frame = loadFrame(in_path)
     done = loadDone(out_path)
     requeued = set()
     rows = [(i, r) for i, r in frame.iterrows() if canon(r["source"]) not in done]
+    if max_rows:
+        rows = rows[:max_rows]
     total = len(rows)
     print("todo %d/%d (skipping %d done)" % (total, len(frame), len(frame) - total), flush=True)
     qpath = os.path.join(os.path.dirname(os.path.abspath(out_path)), "quarantine.jsonl")
@@ -264,5 +266,6 @@ if __name__ == "__main__":
     parser.add_argument("--out", dest="out_path", default=DEFAULT_OUT)
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--timeout", type=int, default=120)
+    parser.add_argument("--max-rows", type=int, default=None)
     args = parser.parse_args()
-    run(args.in_path, args.out_path, args.workers, args.timeout)
+    run(args.in_path, args.out_path, args.workers, args.timeout, args.max_rows)

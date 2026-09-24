@@ -1,5 +1,6 @@
 import os
 import sys
+import argparse
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
@@ -11,7 +12,10 @@ from verify import main as verify_main
 MODEL_ID = "minicpm5-2b"
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--max-rows", type=int, default=None)
+    args = parser.parse_args(argv)
     in_path = os.path.join(SCRIPT_DIR, "clean.parquet")
     translated = os.path.join(SCRIPT_DIR, "translated.jsonl")
     final_out = os.path.join(SCRIPT_DIR, "final.jsonl")
@@ -25,7 +29,7 @@ def main():
         return 1
     print("pipeline: %d endpoint(s), translating %s" % (len(urls), in_path), flush=True)
     try:
-        run_translate(in_path, translated, None)
+        run_translate(in_path, translated, None, 120, args.max_rows)
     except RuntimeError as exc:
         print("pipeline: translate failed: %s" % exc, file=sys.stderr)
         return 1
