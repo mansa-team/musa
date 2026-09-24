@@ -167,7 +167,7 @@ neutral     32313
 negative    26414
 Name: count, dtype: int64
 
-the dataset is also well distributed, with no specific label taking over in it's composition.
+the dataset is also well distributed, with no specific label taking over in it's composition. The script used for it compiles multiple endpoints running the same model, including the 1660super and external endpoints via cloud gpus from Colab (T4) and Kaggle (2x T4), which helps with paralellism in the translation, with verifying scores that trigger auto-retries from the models when needed.
 
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
