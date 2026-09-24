@@ -5,7 +5,11 @@ import sys
 
 import pandas as pd
 
-SCHEMA_KEYS = ("sentiment", "source", "translated", "model", "quality")
+ALLOWED_LABELS = ("positive", "negative", "neutral")
+
+
+def canon(text):
+    return str(text).strip().casefold()
 
 
 def parse_args(argv=None):
@@ -14,6 +18,7 @@ def parse_args(argv=None):
     parser.add_argument("--labels", required=True, help="Labels parquet or CSV path.")
     parser.add_argument("--out", required=True, help="Output JSONL path.")
     parser.add_argument("--model", required=True, help="Model id stamped on every row.")
+    parser.add_argument("--scores", default=None, help="Optional scored JSONL carrying a score per source.")
     return parser.parse_args(argv)
 
 
@@ -27,11 +32,44 @@ def load_label_map(path):
     if missing:
         raise KeyError("labels file missing columns: %s" % sorted(missing))
     label_map = {}
+    dupes = 0
     for row in frame.itertuples(index=False):
         source = row.source
-        if isinstance(source, str) and source not in label_map:
-            label_map[source] = row.sentiment
+        if not isinstance(source, str):
+            continue
+        if canon(source) not in label_map:
+            label_map[canon(source)] = row.sentiment
+        else:
+            dupes += 1
+    if dupes:
+        print("final.py: %d duplicate label sources (first wins)" % dupes, file=sys.stderr)
     return label_map
+
+
+def load_score_map(path):
+    scores = {}
+    if not path:
+        return scores
+    with open(path, encoding="utf-8") as handle:
+        for lineno, line in enumerate(handle, 1):
+            if not line.strip():
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError as exc:
+                print("final.py: scores line %d: bad JSON: %s" % (lineno, exc), file=sys.stderr)
+                continue
+            source = obj.get("source")
+            score = obj.get("score")
+            if not isinstance(source, str) or not source.strip():
+                print("final.py: scores line %d: missing/empty source" % lineno, file=sys.stderr)
+                continue
+            if isinstance(score, bool) or not isinstance(score, (int, float)):
+                continue
+            key = canon(source)
+            if key not in scores:
+                scores[key] = float(score)
+    return scores
 
 
 def main(argv=None):
@@ -40,6 +78,11 @@ def main(argv=None):
         label_map = load_label_map(args.labels)
     except (KeyError, OSError, ValueError) as exc:
         print("final.py: cannot load labels: %s" % exc, file=sys.stderr)
+        return 1
+    try:
+        score_map = load_score_map(args.scores)
+    except OSError as exc:
+        print("final.py: cannot open scores: %s" % exc, file=sys.stderr)
         return 1
     try:
         fin = open(args.translations, "r", encoding="utf-8")
@@ -53,6 +96,7 @@ def main(argv=None):
         fin.close()
         return 1
     n = 0
+    skipped = 0
     with fin, fout:
         for lineno, line in enumerate(fin, 1):
             if not line.strip():
@@ -61,28 +105,38 @@ def main(argv=None):
                 obj = json.loads(line)
             except json.JSONDecodeError as exc:
                 print("final.py: line %d: bad JSON: %s" % (lineno, exc), file=sys.stderr)
-                return 1
+                skipped += 1
+                continue
             source = obj.get("source")
             translated = obj.get("translated")
-            if not isinstance(source, str) or not source:
+            if not isinstance(source, str) or not source.strip():
                 print("final.py: line %d: missing/empty source" % lineno, file=sys.stderr)
-                return 1
-            if not isinstance(translated, str) or not translated:
+                skipped += 1
+                continue
+            if not isinstance(translated, str) or not translated.strip():
                 print("final.py: line %d: missing/empty translated" % lineno, file=sys.stderr)
-                return 1
-            if source not in label_map:
+                skipped += 1
+                continue
+            key = canon(source)
+            if key not in label_map:
                 print("final.py: line %d: no label for source %r" % (lineno, source), file=sys.stderr)
-                return 1
+                skipped += 1
+                continue
+            sentiment = label_map[key]
+            if sentiment not in ALLOWED_LABELS:
+                print("final.py: line %d: unmapped sentiment %r" % (lineno, sentiment), file=sys.stderr)
+                skipped += 1
+                continue
             out = {
-                "sentiment": label_map[source],
+                "sentiment": sentiment,
                 "source": source,
                 "translated": translated,
                 "model": args.model,
-                "quality": None,
+                "quality": score_map.get(key),
             }
             fout.write(json.dumps(out, ensure_ascii=False) + "\n")
             n += 1
-    print("wrote %d rows to %s" % (n, args.out))
+    print("wrote %d rows to %s (%d skipped)" % (n, args.out, skipped))
     return 0
 
 

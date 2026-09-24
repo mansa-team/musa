@@ -2,6 +2,7 @@ import argparse
 import glob
 import json
 import os
+import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CACHE_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "models"))
@@ -39,13 +40,18 @@ def loadModel(model_id):
 def run(inp, out_path, retry_path, threshold, model_id):
     rows = []
     with open(inp, encoding="utf-8") as handle:
-        for line in handle:
+        for lineno, line in enumerate(handle, 1):
             line = line.strip()
-            if line:
+            if not line:
+                continue
+            try:
                 rows.append(json.loads(line))
+            except json.JSONDecodeError as exc:
+                print("rescore.py: line %d: bad JSON: %s" % (lineno, exc), file=sys.stderr)
+                continue
     idx = [i for i, r in enumerate(rows)
            if (r.get("translated") or "").strip() and not r.get("error")]
-    data = [{"src": rows[i]["source"], "mt": rows[i]["translated"]} for i in idx]
+    data = [{"src": rows[i].get("source", ""), "mt": rows[i].get("translated", "")} for i in idx]
     scores = []
     if data:
         model = loadModel(model_id)
@@ -57,8 +63,11 @@ def run(inp, out_path, retry_path, threshold, model_id):
     with open(out_path, "w", encoding="utf-8") as handle:
         for r in rows:
             handle.write(json.dumps(r, ensure_ascii=False) + "\n")
-    retry = [r for i, r in ((i, rows[i]) for i in idx)
-             if r["score"] < threshold]
+    retry = []
+    for i in idx:
+        s = rows[i].get("score")
+        if isinstance(s, (int, float)) and not isinstance(s, bool) and s < threshold:
+            retry.append(rows[i])
     with open(retry_path, "w", encoding="utf-8") as handle:
         for r in retry:
             handle.write(json.dumps({"source": r["source"],
