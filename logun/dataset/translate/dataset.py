@@ -81,6 +81,7 @@ norm = lambda s: s.astype(str).str.lower().str.split().str.join(" ")
 eval = set(norm(pd.read_csv(EVAL_PATH)["text"]))
 dataset["norm"] = norm(dataset["source"])
 
+dataset = dataset.drop_duplicates(subset=["norm"])
 dataset = dataset[~dataset["norm"].isin(eval)].drop(columns=["norm"]).reset_index(drop=True)
 
 dataset.to_csv(os.path.join(SCRIPT_DIR, "clean.csv"), index=False, encoding="utf-8")
