@@ -219,9 +219,10 @@ todo:
 - [ ] include the cvm scraper specs
 - [ ] include graphs for eda explaining the data composition and processes from both dapt and sft (like this one https://pbs.twimg.com/media/HS7RMmIbkAAOmCL?format=jpg&name=small)
 - [ ] replace "we are going to use x" to "Hypothesis -> Experiment -> Measurement -> Expected interpretation"
+- [ ] include laya multilingual benchmarks for the financial_phrasebank sample
 
 specs:
-1660super 6gb 336gb/s
+1660super 6gb 360gb/s
 4x8gb 25gb/s
 
 cloud:

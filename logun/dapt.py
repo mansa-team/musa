@@ -18,8 +18,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--resume", nargs="?", const=True, default=False)
 args = parser.parse_args()
 
-model_name = 'Itau-Unibanco/NorBERTo-base'
-checkpoint_name = f'logun-base-250M'
+repository_name = "heitorrosa/logun-base"
+model_name = "Itau-Unibanco/NorBERTo-base"
+checkpoint_name = "logun-base-250M"
 
 config = Path(__file__).resolve().parent / "config.yaml"
 config = yaml.safe_load(config.read_text(encoding="utf-8"))
@@ -33,19 +34,19 @@ DATASET_CACHE.mkdir(parents=True, exist_ok=True)
 resume = None
 if args.resume is not None:
     if args.resume is True:
-        files = list_repo_files("heitorrosa/logun-base", token=HF_TOKEN)
-        nums = [int(p.split("/")[0].split("-")[1]) for p in files if p.startswith("checkpoint-") and "/" in p]
+        files = list_repo_files(repository_name, token=HF_TOKEN)
+        nums = [int(p.split("/")[1].split("-")[1]) for p in files if p.startswith("dapt/checkpoint-") and len(p.split("/")) > 2]
         checkpoint = f"checkpoint-{max(nums)}" if nums else None
     else:
         checkpoint = str(args.resume).split("/")[-1]
 
-    target = Path(CACHE / checkpoint_name) / checkpoint if checkpoint else None
+    target = Path(CACHE / checkpoint_name) / "dapt" / checkpoint if checkpoint else None
 
     if checkpoint and not (target / "trainer_state.json").exists():
         snapshot_download(
-            repo_id="heitorrosa/logun-base",
+            repo_id=repository_name,
             revision="main",
-            allow_patterns=[f"{checkpoint}/*"],
+            allow_patterns=[f"dapt/{checkpoint}/*"],
             local_dir=Path(CACHE / checkpoint_name),
             token=HF_TOKEN,
         )
@@ -64,6 +65,7 @@ model = get_peft_model(model, LoraConfig(
 ))
 
 dataset = load_dataset("json", data_files="logun/dataset/data/output/corpus-250M.jsonl", cache_dir=str(DATASET_CACHE))["train"].train_test_split(test_size=0.01, seed=config['seed'])
+# load_dataset("heitorrosa/cvm-corpus", name="dsir_250m", cache_dir=str(DATASET_CACHE))["train"] also works
 
 tokenized_dataset = dataset.map(
     lambda data: tokenizer(data['text'], truncation=True, max_length=8192),
@@ -90,7 +92,7 @@ training_args = TrainingArguments(
     save_steps=500, save_total_limit=2,
 
     push_to_hub=True,
-    hub_model_id="heitorrosa/logun-base",
+    hub_model_id=repository_name,
     hub_strategy="all_checkpoints",
     hub_token=HF_TOKEN,
 
