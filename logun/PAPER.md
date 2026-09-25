@@ -171,6 +171,8 @@ the dataset is also well distributed, with no specific label taking over in it's
 
 the translate script works with a pipeline that automatically injects added endpoints in endpoints.txt, making so, fallbacking from other instances or including more instances in the inference pool doesnt require a full restart of the script, it quarentines sentences that doesnt hit the char threshold, this is useful for possible response errors, which yields in a empty translation box, after the pipeline initially runs, the comet model evals the results, querying a retry for those who doesnt meet the quality standards. The translation pipeline accounts for a full recovery system if a crash happens and it's running confortably with logging for each iteration and its inference status. The researcher's pool is running on a 1660super at ~100tk/s and 2x T4's from a Kaggle VM, both running at ~50tk/s each. The Kaggle inference engine uses Cloudflare Tunnels to allow for inbound traffic, which allows the researcher to run the main pipeline from his local computer, while inference work is handled externally.
 
+The translation completed smoothly, creating a final corpus of about ~63k rows after dedups and quality control checks from the pipeline, for SFT, the researcher is going to filter out samples that have a COMET score < 0.5, making sure that the quality presented is valid. This final version of the dataset is about 
+
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
 https://arxiv.org/abs/2004.10964 (dont stop pretraining, 2020)

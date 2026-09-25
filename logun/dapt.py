@@ -3,7 +3,7 @@ import os
 import yaml
 import argparse
 
-from huggingface_hub import list_repo_files, snapshot_download
+from huggingface_hub import list_repo_files, snapshot_download, upload_folder
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForMaskedLM, DataCollatorForLanguageModeling, TrainingArguments, Trainer, TrainerCallback
 from peft import LoraConfig, get_peft_model, TaskType
@@ -14,6 +14,20 @@ load_dotenv()
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 
+class PushPhaseCallback(TrainerCallback):
+    def __init__(self, phase):
+        self.phase = phase
+
+    def on_save(self, args, state, control, **kwargs):
+        ckpt = f"checkpoint-{state.global_step}"
+        upload_folder(
+            repo_id="heitorrosa/logun-base",
+            folder_path=str(Path(args.output_dir) / ckpt),
+            path_in_repo=f"{self.phase}/{ckpt}",
+            token=HF_TOKEN,
+        )
+        return control
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--resume", nargs="?", const=True, default=False)
 args = parser.parse_args()
@@ -21,6 +35,7 @@ args = parser.parse_args()
 repository_name = "heitorrosa/logun-base"
 model_name = "Itau-Unibanco/NorBERTo-base"
 checkpoint_name = "logun-base-250M"
+PHASE = "dapt"
 
 config = Path(__file__).resolve().parent / "config.yaml"
 config = yaml.safe_load(config.read_text(encoding="utf-8"))
@@ -52,7 +67,7 @@ if args.resume is not None:
         )
 
     resume = str(target) if checkpoint and target.exists() else None
-    
+
 tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=str(CACHE), use_fast=True)
 model = AutoModelForMaskedLM.from_pretrained(model_name, cache_dir=str(CACHE), trust_remote_code=True, dtype=torch.float16)
 
@@ -73,7 +88,7 @@ tokenized_dataset = dataset.map(
 )
 
 training_args = TrainingArguments(
-    output_dir=str(CACHE / checkpoint_name),
+    output_dir=str(CACHE / checkpoint_name / PHASE),
 
     per_device_train_batch_size=2,
     per_device_eval_batch_size=4,
@@ -91,17 +106,14 @@ training_args = TrainingArguments(
     eval_strategy="steps", eval_steps=500,
     save_steps=500, save_total_limit=2,
 
-    push_to_hub=True,
-    hub_model_id=repository_name,
-    hub_strategy="all_checkpoints",
-    hub_token=HF_TOKEN,
+    push_to_hub=False,
 
     dataloader_pin_memory=True,
     gradient_checkpointing=True,
 )
 
 collator = DataCollatorForLanguageModeling(tokenizer, mlm=True, mlm_probability=0.15)
-trainer = Trainer(model=model, args=training_args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator)
+trainer = Trainer(model=model, args=training_args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator, callbacks=[PushPhaseCallback(PHASE)])
 
 trainer.train(resume_from_checkpoint=resume)
-trainer.save_model(str(CACHE / checkpoint_name))
+trainer.save_model(str(CACHE / checkpoint_name / PHASE))
