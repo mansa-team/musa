@@ -39,9 +39,10 @@ def sankey(nodes, xs, ys, sources, targets, values, colors, nodeColors,
                   line=dict(color="rgba(0,0,0,0)", width=0)),
         link=dict(source=sources, target=targets, value=values, color=colors),
     ))
-    fig.update_layout(title=title, font=dict(size=13),
-                      margin=dict(l=10, r=10, t=50, b=10),
-                      width=1200, height=700)
+    fig.update_layout(title=dict(text=title, font=dict(size=24, color="#0f0f0f")),
+                      font=dict(size=18, color="#0f0f0f"),
+                      margin=dict(l=10, r=30, t=50, b=10),
+                      width=1400, height=700)
     fig.write_image(out, scale=2)
     print(f"Saved {out}")
 
@@ -61,7 +62,7 @@ def sftFigure():
              f"scored {translated:,}",
              f"final {final:,}", f"echoes+unmatched {echoes + unmatched:,}",
              f"kept (q>=0.5) ~{kept:,}", f"below ~{below:,}"]
-    xs = [0.0, 0.0, 0.0, 0.0, 0.22, 0.44, 0.62, 0.62, 0.80, 0.80, 1.0, 1.0]
+    xs = [0.0, 0.0, 0.0, 0.0, 0.20, 0.40, 0.60, 0.60, 0.76, 0.76, 1.0, 1.0]
     ys = [0.16, 0.52, 0.76, 0.90, 0.32, 0.32, 0.88, 0.32, 0.28, 0.62, 0.20, 0.52]
     sources = [0, 1, 2, 3, 4, 4, 5, 6, 6, 7, 7]
     targets = [4, 4, 4, 4, 5, 6, 7, 8, 9, 10, 11]

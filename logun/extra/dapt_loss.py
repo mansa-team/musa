@@ -59,6 +59,7 @@ def plotStates(states: list[str], outDir: str) -> str:
         )
     plt.xlabel("epoch",)
     plt.ylabel("loss",)
+    plt.title("DAPT training loss (logun-base-250M)",)
     plt.legend()
     plt.tight_layout()
     pngPath = os.path.join(

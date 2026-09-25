@@ -173,6 +173,7 @@ the translate script works with a pipeline that automatically injects added endp
 
 The translation completed smoothly, creating a final corpus of about ~63k rows after dedups and quality control checks from the pipeline, for SFT, the researcher is going to filter out samples that have a COMET score < 0.5, making sure that the quality presented is valid. This final version of the dataset is about ~56k rows.
 
+
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
 https://arxiv.org/abs/2004.10964 (dont stop pretraining, 2020)
