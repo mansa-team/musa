@@ -230,3 +230,4 @@ t4 16gb 336gb/s
 related urls:
 - https://huggingface.co/heitorrosa/logun-base
 - https://huggingface.co/datasets/heitorrosa/cvm-corpus
+- https://huggingface.co/datasets/heitorrosa/financial-sentiment-pt

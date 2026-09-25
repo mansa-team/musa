@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import queue
+import sys
 import threading
 import time
 import urllib.request
@@ -97,7 +98,7 @@ Output MUST strictly follow this exact syntax structure:
 PREFILL_TAG = "<translation>"
 
 
-def translateOne(text, endpoint, temperature=0.0):
+def translateOne(text, endpoint, temperature=0.3):
     body = json.dumps({
         "messages": [{"role": "system", "content": SYSTEM},
                      {"role": "user", "content": "<source>%s</source>" % text},
@@ -141,7 +142,12 @@ def loadFrame(path):
         raise ValueError("no source text column (need one of %s)" % (",".join(SOURCE_ALIASES)))
     if "dataset" not in frame.columns:
         frame["dataset"] = ""
-    return frame[["source", "dataset"]].dropna(subset=["source"])
+    frame = frame[["source", "dataset"]].dropna(subset=["source"])
+    mask = frame["source"].astype(str).str.strip() != ""
+    dropped = int((~mask).sum())
+    if dropped:
+        print("loadFrame: dropped %d whitespace-only rows" % dropped, file=sys.stderr, flush=True)
+    return frame[mask]
 
 
 def loadDone(out_path):

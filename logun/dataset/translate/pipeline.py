@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import argparse
@@ -5,11 +6,46 @@ import argparse
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from translate import run as run_translate, ENDPOINT_FILE, loadEndpoints
+from translate import run as run_translate, ENDPOINT_FILE, loadEndpoints, canon
 from final import main as final_main
 from verify import main as verify_main
 
 MODEL_ID = "minicpm5-2b"
+
+
+def _stripBanked(src, dst):
+    """Drop dst rows whose canon matches src rows (atomic tmp+rename).
+
+    Re-fed rows are already banked, so resume would skip them. Stripping
+    first lets the plain run() retranslate exactly those rows. No flags."""
+    if not os.path.exists(dst):
+        return 0
+    doomed = set()
+    with open(src, encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                doomed.add(canon(json.loads(line).get("source", "")))
+            except ValueError:
+                continue
+    if not doomed:
+        return 0
+    kept = []
+    with open(dst, encoding="utf-8") as handle:
+        for line in handle:
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            if canon(record.get("source", "")) not in doomed:
+                kept.append(line if line.endswith("\n") else line + "\n")
+    tmp = dst + ".strip.tmp"
+    with open(tmp, "w", encoding="utf-8") as handle:
+        handle.writelines(kept)
+    os.replace(tmp, dst)
+    return len(doomed)
 
 
 def main(argv=None):
@@ -57,12 +93,15 @@ def main(argv=None):
     # translate appends and resume skips banked canons, so this is idempotent.
     # New failures re-quarantine themselves; one bounded pass, no loop.
     try:
+        fed_any = False
         for pending in (retry, qpath, echoes):
             if os.path.exists(pending) and os.path.getsize(pending) > 0:
                 print("pipeline: re-feeding %s" % pending, flush=True)
+                _stripBanked(pending, translated)
                 run_translate(pending, translated, None, 120)
                 os.remove(pending)
-        if run_rescore is not None:
+                fed_any = True
+        if fed_any and run_rescore is not None:
             run_rescore(translated, scored, retry, 0.5, KIWI_ID)
             scores_arg = ["--scores", scored]
     except RuntimeError as exc:
@@ -77,6 +116,7 @@ def main(argv=None):
     try:
         if os.path.exists(echoes) and os.path.getsize(echoes) > 0:
             print("pipeline: re-feeding echoes", flush=True)
+            _stripBanked(echoes, translated)
             run_translate(echoes, translated, None, 120)
             os.remove(echoes)
             if run_rescore is not None:
