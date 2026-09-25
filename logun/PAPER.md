@@ -217,7 +217,7 @@ https://arxiv.org/abs/2001.08361 (Scaling Laws, 2020)
 
 todo:
 - [ ] include the cvm scraper specs
-- [ ] include graphs for eda
+- [ ] include graphs for eda explaining the data composition and processes from both dapt and sft (like this one https://pbs.twimg.com/media/HS7RMmIbkAAOmCL?format=jpg&name=small)
 - [ ] replace "we are going to use x" to "Hypothesis -> Experiment -> Measurement -> Expected interpretation"
 
 specs:

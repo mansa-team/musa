@@ -2,7 +2,7 @@ import argparse
 import json
 import sys
 
-REQUIRED_KEYS = ("sentiment", "source", "translated", "model", "quality")
+REQUIRED_KEYS = ("sentiment", "source", "translated", "model", "quality", "dataset", "endpoint", "idx")
 ALLOWED_LABELS = {"positive", "negative", "neutral"}
 
 
@@ -12,7 +12,7 @@ def fail(msg):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Verify locked 5-field SFT JSONL.")
+    parser = argparse.ArgumentParser(description="Verify locked 8-field SFT JSONL.")
     parser.add_argument("--in", dest="inp", required=True, help="Input JSONL path.")
     args = parser.parse_args(argv)
     try:
@@ -36,9 +36,11 @@ def main(argv=None):
                 continue
             if obj["sentiment"] not in ALLOWED_LABELS:
                 ok = fail("line %d: bad sentiment %r" % (lineno, obj["sentiment"]))
-            for key in ("source", "translated", "model"):
+            for key in ("source", "translated", "model", "dataset", "endpoint"):
                 if not isinstance(obj[key], str) or not obj[key].strip():
                     ok = fail("line %d: %s must be a non-empty string" % (lineno, key))
+            if obj["idx"] is None or isinstance(obj["idx"], bool) or not isinstance(obj["idx"], int):
+                ok = fail("line %d: idx must be an integer" % lineno)
             quality = obj["quality"]
             if quality is not None and (isinstance(quality, bool) or not isinstance(quality, (int, float))):
                 ok = fail("line %d: quality must be float or null" % lineno)

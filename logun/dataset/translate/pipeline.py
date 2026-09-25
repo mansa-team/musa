@@ -21,6 +21,7 @@ def main(argv=None):
     translated = os.path.join(SCRIPT_DIR, "translated%s.jsonl" % suffix)
     scored = os.path.join(SCRIPT_DIR, "scored%s.jsonl" % suffix)
     retry = os.path.join(SCRIPT_DIR, "retry%s.jsonl" % suffix)
+    echoes = os.path.join(SCRIPT_DIR, "echoes%s.jsonl" % suffix)
     final_out = os.path.join(SCRIPT_DIR, "final.jsonl")
     for path in (in_path, ENDPOINT_FILE):
         if not os.path.exists(path):
@@ -43,14 +44,53 @@ def main(argv=None):
     scores_arg = []
     try:
         from rescore import run as run_rescore, DEFAULT_MODEL_ID as KIWI_ID
-        run_rescore(translated, scored, retry, 0.5, KIWI_ID)
-        scores_arg = ["--scores", scored]
     except Exception as exc:
-        print("pipeline: rescore failed (%s) - continuing with null quality" % exc, file=sys.stderr)
+        run_rescore = None
+        print("pipeline: rescore unavailable (%s) - continuing with null quality" % exc, file=sys.stderr)
+    if run_rescore is not None:
+        try:
+            run_rescore(translated, scored, retry, 0.5, KIWI_ID)
+            scores_arg = ["--scores", scored]
+        except Exception as exc:
+            print("pipeline: rescore failed (%s) - continuing with null quality" % exc, file=sys.stderr)
+    # Re-feed loop: retry + quarantine rows go back through translate.
+    # translate appends and resume skips banked canons, so this is idempotent.
+    # New failures re-quarantine themselves; one bounded pass, no loop.
+    try:
+        for pending in (retry, qpath, echoes):
+            if os.path.exists(pending) and os.path.getsize(pending) > 0:
+                print("pipeline: re-feeding %s" % pending, flush=True)
+                run_translate(pending, translated, None, 120)
+                os.remove(pending)
+        if run_rescore is not None:
+            run_rescore(translated, scored, retry, 0.5, KIWI_ID)
+            scores_arg = ["--scores", scored]
+    except RuntimeError as exc:
+        print("pipeline: re-feed failed (%s) - continuing with translated rows" % exc, file=sys.stderr)
     rc = final_main(["--translations", translated, "--labels", in_path,
-                     "--out", final_out, "--model", MODEL_ID] + scores_arg)
+                     "--out", final_out, "--model", MODEL_ID,
+                     "--echoes-out", echoes] + scores_arg)
     if rc != 0:
         return rc
+    # Echoes (verbatim copies quarantined by final) get one retranslation pass,
+    # then final rebuilds deterministically from translated.jsonl.
+    try:
+        if os.path.exists(echoes) and os.path.getsize(echoes) > 0:
+            print("pipeline: re-feeding echoes", flush=True)
+            run_translate(echoes, translated, None, 120)
+            os.remove(echoes)
+            if run_rescore is not None:
+                try:
+                    run_rescore(translated, scored, retry, 0.5, KIWI_ID)
+                except Exception as exc:
+                    print("pipeline: rescore failed (%s)" % exc, file=sys.stderr)
+            rc = final_main(["--translations", translated, "--labels", in_path,
+                             "--out", final_out, "--model", MODEL_ID,
+                             "--echoes-out", echoes] + scores_arg)
+            if rc != 0:
+                return rc
+    except RuntimeError as exc:
+        print("pipeline: echo re-feed failed (%s)" % exc, file=sys.stderr)
     rc = verify_main(["--in", final_out])
     if rc != 0:
         return rc

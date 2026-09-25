@@ -19,6 +19,7 @@ def parse_args(argv=None):
     parser.add_argument("--out", required=True, help="Output JSONL path.")
     parser.add_argument("--model", required=True, help="Model id stamped on every row.")
     parser.add_argument("--scores", default=None, help="Optional scored JSONL carrying a score per source.")
+    parser.add_argument("--echoes-out", default=None, help="Optional path to write verbatim-echo rows for retranslation.")
     return parser.parse_args(argv)
 
 
@@ -67,8 +68,7 @@ def load_score_map(path):
             if isinstance(score, bool) or not isinstance(score, (int, float)):
                 continue
             key = canon(source)
-            if key not in scores:
-                scores[key] = float(score)
+            scores[key] = float(score)  # last wins: matches the kept re-fed translation
     return scores
 
 
@@ -95,9 +95,20 @@ def main(argv=None):
         print("final.py: cannot open output: %s" % exc, file=sys.stderr)
         fin.close()
         return 1
+    eout = None
+    if args.echoes_out:
+        try:
+            eout = open(args.echoes_out, "w", encoding="utf-8")
+        except OSError as exc:
+            print("final.py: cannot open echoes output: %s" % exc, file=sys.stderr)
+            fin.close()
+            fout.close()
+            return 1
     n = 0
     skipped = 0
-    with fin, fout:
+    echoes = 0
+    rows = {}
+    with fin:
         for lineno, line in enumerate(fin, 1):
             if not line.strip():
                 continue
@@ -118,6 +129,14 @@ def main(argv=None):
                 skipped += 1
                 continue
             key = canon(source)
+            if canon(translated) == key:
+                print("final.py: line %d: verbatim echo, quarantined for retranslation" % lineno, file=sys.stderr)
+                skipped += 1
+                echoes += 1
+                if eout is not None:
+                    eout.write(json.dumps({"idx": obj.get("idx"), "source": source,
+                                           "dataset": obj.get("dataset", "")}, ensure_ascii=False) + "\n")
+                continue
             if key not in label_map:
                 print("final.py: line %d: no label for source %r" % (lineno, source), file=sys.stderr)
                 skipped += 1
@@ -133,10 +152,18 @@ def main(argv=None):
                 "translated": translated,
                 "model": args.model,
                 "quality": score_map.get(key),
+                "dataset": obj.get("dataset", ""),
+                "endpoint": obj.get("endpoint", ""),
+                "idx": obj.get("idx"),
             }
+            rows[key] = out  # last good wins: re-fed corrections overwrite stale rows
+    if eout is not None:
+        eout.close()
+    with fout:
+        for out in rows.values():
             fout.write(json.dumps(out, ensure_ascii=False) + "\n")
             n += 1
-    print("wrote %d rows to %s (%d skipped)" % (n, args.out, skipped))
+    print("wrote %d rows to %s (%d skipped, %d echoes)" % (n, args.out, skipped, echoes))
     return 0
 
 
