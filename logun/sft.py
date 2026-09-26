@@ -35,6 +35,12 @@ class PushPhaseCallback(TrainerCallback):
         return control
 
 
+class TrueTrainLossCallback(TrainerCallback):
+    def on_log(self, args, state, logs, **kwargs):
+        if logs is not None and "loss" in logs:
+            logs["loss_true"] = logs["loss"] / max(1, args.gradient_accumulation_steps)
+
+
 def compute_metrics(eval_pred):
     logits, labels = eval_pred
     preds = logits.argmax(-1)
@@ -93,15 +99,21 @@ model = AutoModelForSequenceClassification.from_pretrained(
     label2id={"negative": 0, "neutral": 1, "positive": 2},
 )
 
+if hasattr(model, "peft_config"):
+    if hasattr(model, "merge_and_unload"):
+        model = model.merge_and_unload()
+
 lora_config = LoraConfig(
     r=16,
     lora_alpha=32,
     lora_dropout=0.05,
     task_type=TaskType.SEQ_CLS,
     target_modules=["Wqkv", "Wo", "Wi"],
-    modules_to_save=["classifier", "score"],
+    modules_to_save=["classifier"],
+    adapter_name="sft",
 )
 model = get_peft_model(model, lora_config)
+model.set_adapter("sft")
 
 dataset = load_dataset("heitorrosa/financial-sentiment-pt", cache_dir=str(DATASET_CACHE))["train"].to_pandas()
 dataset = dataset[pd.to_numeric(dataset.get("quality", 0), errors="coerce").fillna(0) >= 0.5]
@@ -127,7 +139,7 @@ training_args = TrainingArguments(
     num_train_epochs=1.5,
 
     optim="adamw_torch_fused",
-    learning_rate=0.00005, warmup_steps=500,
+    learning_rate=0.00005, warmup_steps=150,
     weight_decay=0.01, adam_beta1=0.9, adam_beta2=0.95,
 
     fp16=True,
@@ -141,10 +153,11 @@ training_args = TrainingArguments(
 
     dataloader_pin_memory=True,
     gradient_checkpointing=True,
+    max_grad_norm=1.0,
 )
 
 collator = DataCollatorWithPadding(tokenizer)
-trainer = Trainer(model=model, args=training_args, train_dataset=tokenized["train"], eval_dataset=tokenized["test"], data_collator=collator, compute_metrics=compute_metrics, callbacks=[PushPhaseCallback("sft", repository_name)])
+trainer = Trainer(model=model, args=training_args, train_dataset=tokenized["train"], eval_dataset=tokenized["test"], data_collator=collator, compute_metrics=compute_metrics, callbacks=[PushPhaseCallback("sft", repository_name), TrueTrainLossCallback()])
 
 trainer.train(resume_from_checkpoint=resume)
 trainer.save_model(str(CACHE / checkpoint_name / "sft"))
