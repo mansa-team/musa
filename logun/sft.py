@@ -36,7 +36,7 @@ class PushPhaseCallback(TrainerCallback):
 
 
 class TrueTrainLossCallback(TrainerCallback):
-    def on_log(self, args, state, logs, **kwargs):
+    def on_log(self, args, state, control, logs=None, **kwargs):
         if logs is not None and "loss" in logs:
             logs["loss_true"] = logs["loss"] / max(1, args.gradient_accumulation_steps)
 
@@ -103,17 +103,14 @@ if hasattr(model, "peft_config"):
     if hasattr(model, "merge_and_unload"):
         model = model.merge_and_unload()
 
-lora_config = LoraConfig(
-    r=16,
-    lora_alpha=32,
-    lora_dropout=0.05,
-    task_type=TaskType.SEQ_CLS,
-    target_modules=["Wqkv", "Wo", "Wi"],
-    modules_to_save=["classifier"],
-    adapter_name="sft",
-)
-model = get_peft_model(model, lora_config)
-model.set_adapter("sft")
+# adapter_name lives on get_peft_model, not LoraConfig (all versions).
+# LoraConfig.__init__() rejects adapter_name; pass it to get_peft_model instead.
+lora_config = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, task_type=TaskType.SEQ_CLS, target_modules=["Wqkv", "Wo", "Wi"], modules_to_save=["classifier"])
+ADAPTER_NAME = "sft"
+try: model = get_peft_model(model, lora_config, adapter_name=ADAPTER_NAME)
+except TypeError: model = get_peft_model(model, lora_config); ADAPTER_NAME = "default"
+try: model.set_adapter(ADAPTER_NAME)
+except Exception: pass
 
 dataset = load_dataset("heitorrosa/financial-sentiment-pt", cache_dir=str(DATASET_CACHE))["train"].to_pandas()
 dataset = dataset[pd.to_numeric(dataset.get("quality", 0), errors="coerce").fillna(0) >= 0.5]
