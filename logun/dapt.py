@@ -15,13 +15,14 @@ load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
 
 class PushPhaseCallback(TrainerCallback):
-    def __init__(self, phase):
+    def __init__(self, phase, repo):
         self.phase = phase
+        self.repo = repo
 
     def on_save(self, args, state, control, **kwargs):
         ckpt = f"checkpoint-{state.global_step}"
         upload_folder(
-            repo_id="heitorrosa/logun-base",
+            repo_id=self.repo,
             folder_path=str(Path(args.output_dir) / ckpt),
             path_in_repo=f"{self.phase}/{ckpt}",
             token=HF_TOKEN,
@@ -35,7 +36,6 @@ args = parser.parse_args()
 repository_name = "heitorrosa/logun-base"
 model_name = "Itau-Unibanco/NorBERTo-base"
 checkpoint_name = "logun-base-250M"
-PHASE = "dapt"
 
 config = Path(__file__).resolve().parent / "config.yaml"
 config = yaml.safe_load(config.read_text(encoding="utf-8"))
@@ -88,7 +88,7 @@ tokenized_dataset = dataset.map(
 )
 
 training_args = TrainingArguments(
-    output_dir=str(CACHE / checkpoint_name / PHASE),
+    output_dir=str(CACHE / checkpoint_name / "dapt"),
 
     per_device_train_batch_size=2,
     per_device_eval_batch_size=4,
@@ -113,7 +113,13 @@ training_args = TrainingArguments(
 )
 
 collator = DataCollatorForLanguageModeling(tokenizer, mlm=True, mlm_probability=0.15)
-trainer = Trainer(model=model, args=training_args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator, callbacks=[PushPhaseCallback(PHASE)])
+trainer = Trainer(model=model, args=training_args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator, callbacks=[PushPhaseCallback("dapt", repository_name)])
 
 trainer.train(resume_from_checkpoint=resume)
-trainer.save_model(str(CACHE / checkpoint_name / PHASE))
+trainer.save_model(str(CACHE / checkpoint_name / "dapt"))
+upload_folder(
+    repo_id=repository_name,
+    folder_path=str(CACHE / checkpoint_name / "dapt"),
+    path_in_repo="dapt",
+    token=HF_TOKEN,
+)
