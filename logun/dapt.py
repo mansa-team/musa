@@ -79,8 +79,7 @@ model = get_peft_model(model, LoraConfig(
     target_modules=["Wqkv", "Wo", "Wi"]
 ))
 
-dataset = load_dataset("json", data_files="logun/dataset/data/output/corpus-250M.jsonl", cache_dir=str(DATASET_CACHE))["train"].train_test_split(test_size=0.01, seed=config['seed'])
-# load_dataset("heitorrosa/cvm-corpus", name="dsir_250m", cache_dir=str(DATASET_CACHE))["train"] also works
+dataset = load_dataset("heitorrosa/cvm-corpus", name="dsir_250m", cache_dir=str(DATASET_CACHE))["train"].train_test_split(test_size=0.01, seed=config['seed'])
 
 tokenized_dataset = dataset.map(
     lambda data: tokenizer(data['text'], truncation=True, max_length=8192),
