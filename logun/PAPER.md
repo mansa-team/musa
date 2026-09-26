@@ -173,6 +173,7 @@ the translate script works with a pipeline that automatically injects added endp
 
 The translation completed smoothly, creating a final corpus of about ~63k rows after dedups and quality control checks from the pipeline, for SFT, the researcher is going to filter out samples that have a COMET score < 0.5, making sure that the quality presented is valid. This final version of the dataset is about ~56k rows.
 
+The ETA for the full SFT on the 1660super is measured at arround 5:30h with about 8it/s over 2646 steps, meanwhile the 2x T4 cluster on Kaggle is hitting about 
 
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)

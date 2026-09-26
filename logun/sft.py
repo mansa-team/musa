@@ -23,6 +23,8 @@ class PushPhaseCallback(TrainerCallback):
         self.repo = repo
 
     def on_save(self, args, state, control, **kwargs):
+        if args.local_rank not in (-1, 0):
+            return control
         ckpt = f"checkpoint-{state.global_step}"
         upload_folder(
             repo_id=self.repo,
