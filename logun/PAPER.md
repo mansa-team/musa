@@ -173,7 +173,9 @@ the translate script works with a pipeline that automatically injects added endp
 
 The translation completed smoothly, creating a final corpus of about ~63k rows after dedups and quality control checks from the pipeline, for SFT, the researcher is going to filter out samples that have a COMET score < 0.5, making sure that the quality presented is valid. This final version of the dataset is about ~56k rows.
 
-The ETA for the full SFT on the 1660super is measured at arround 5:30h with about 8it/s over 2646 steps, meanwhile the 2x T4 cluster on Kaggle is hitting about 
+The ETA for the full SFT on the 1660super is measured at arround 5:30h with about 8it/s over 2646 steps, meanwhile the 2x T4 cluster on Kaggle is hitting about 4it/s over 1323 steps, on a eta of 1:30h, way faster than the 1660super as expected, the jupyter notebooks follows the same approach as the dapt one, allowing hte researcher to use multiple nodes as the quota gets exhausted, which might not be needed in this case since the training time is way below the max threshold.
+
+Considering that the time is ephemeral to run and that we can measure the compute metrics over different quality thresholds to see which one performs better and how much the COMET quality affects the final model outputs
 
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
