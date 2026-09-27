@@ -119,7 +119,7 @@ try: model.set_adapter(ADAPTER_NAME)
 except Exception: pass
 
 dataset = load_dataset("heitorrosa/financial-sentiment-pt", cache_dir=str(DATASET_CACHE))["train"].to_pandas()
-dataset = dataset[pd.to_numeric(dataset.get("quality", 0), errors="coerce").fillna(0) >= 0.6]
+dataset = dataset[pd.to_numeric(dataset.get("quality", 0), errors="coerce").fillna(0) >= 0.7]
 
 labels = dataset["sentiment"].astype(str).str.strip().str.lower()
 

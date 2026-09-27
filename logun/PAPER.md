@@ -177,6 +177,11 @@ The ETA for the full SFT on the 1660super is measured at arround 5:30h with abou
 
 Considering that the time is ephemeral to run and that we can measure the compute metrics over different quality thresholds to see which one performs better and how much the COMET quality affects the final model outputs.
 
+  0.5 56999
+  0.6	46853
+  0.7	34476
+  0.8	18682
+
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
 https://arxiv.org/abs/2004.10964 (dont stop pretraining, 2020)
