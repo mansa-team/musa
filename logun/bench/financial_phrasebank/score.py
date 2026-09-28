@@ -83,15 +83,18 @@ def loadDataset(path: str) -> tuple:
 def loadEncoder(modelId: str, configOverrides: dict | None = None) -> tuple:
     from transformers import AutoConfig
     print(f"encode {modelId} on {DEVICE}")
+    repo, sep, rev = modelId.rpartition("@")
+    revKw = {"revision": rev} if sep and "/" not in rev and repo else {}
+    hubId = repo if revKw else modelId
     if configOverrides:
-        cfg = AutoConfig.from_pretrained(modelId, token=TOKEN)
+        cfg = AutoConfig.from_pretrained(hubId, token=TOKEN, **revKw)
         for key, val in configOverrides.items():
             setattr(cfg, key, val)
-        tokenizer = AutoTokenizer.from_pretrained(modelId, token=TOKEN)
-        model = AutoModel.from_pretrained(modelId, config=cfg)
+        tokenizer = AutoTokenizer.from_pretrained(hubId, token=TOKEN, **revKw)
+        model = AutoModel.from_pretrained(hubId, config=cfg, **revKw)
     else:
-        tokenizer = AutoTokenizer.from_pretrained(modelId, token=TOKEN)
-        model = AutoModel.from_pretrained(modelId, token=TOKEN)
+        tokenizer = AutoTokenizer.from_pretrained(hubId, token=TOKEN, **revKw)
+        model = AutoModel.from_pretrained(hubId, token=TOKEN, **revKw)
     model.eval()
     model.to(DEVICE)
     return model, tokenizer

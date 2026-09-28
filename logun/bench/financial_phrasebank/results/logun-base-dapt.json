@@ -1,9 +1,31 @@
 {
   "slug": "logun-base-dapt",
-  "model": "heitorrosa/logun-base@dapt",
-  "acc": 0.7484536170959473,
-  "f1": 0.7031124603813468,
+  "model": "heitorrosa/logun-base",
+  "acc": 0.7505155205726624,
+  "f1": 0.7042160989922183,
+  "confusion_matrix": [
+    [
+      77,
+      27,
+      17
+    ],
+    [
+      17,
+      482,
+      77
+    ],
+    [
+      19,
+      85,
+      169
+    ]
+  ],
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
   "latencyMs": {
-    "classifyPerText": 43.07
+    "classifyPerText": 67.75
   }
 }

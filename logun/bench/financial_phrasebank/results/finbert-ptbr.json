@@ -3,7 +3,29 @@
   "model": "lucas-leme/FinBERT-PT-BR",
   "acc": 0.7865979671478271,
   "f1": 0.7510023016121212,
+  "confusion_matrix": [
+    [
+      83,
+      20,
+      18
+    ],
+    [
+      18,
+      493,
+      65
+    ],
+    [
+      9,
+      77,
+      187
+    ]
+  ],
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
   "latencyMs": {
-    "classifyPerText": 21.4
+    "classifyPerText": 18.43
   }
 }

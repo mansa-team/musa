@@ -26,7 +26,7 @@ MODELS = [
     ("modernbert-base", "answerdotai/ModernBERT-base", None),
     ("norberto-base", "Itau-Unibanco/NorBERTo-base", None),
     ("norberto-large", "Itau-Unibanco/NorBERTo-large", None),
-    ("logun-base-dapt", "heitorrosa/logun-base@dapt", None),
+    ("logun-base-dapt", "heitorrosa/logun-base", None),
     ("finbert-ptbr", "lucas-leme/FinBERT-PT-BR", None),
     ("deb3rta-base", "higopires/DeB3RTa-base", {"hidden_size": 384, "intermediate_size": 1536}),
 ]

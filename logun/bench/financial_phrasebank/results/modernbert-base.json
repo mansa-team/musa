@@ -3,7 +3,29 @@
   "model": "answerdotai/ModernBERT-base",
   "acc": 0.6329897046089172,
   "f1": 0.5418400762770995,
+  "confusion_matrix": [
+    [
+      47,
+      54,
+      20
+    ],
+    [
+      38,
+      440,
+      98
+    ],
+    [
+      35,
+      111,
+      127
+    ]
+  ],
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
   "latencyMs": {
-    "classifyPerText": 41.55
+    "classifyPerText": 40.71
   }
 }

@@ -3,7 +3,29 @@
   "model": "Itau-Unibanco/NorBERTo-base",
   "acc": 0.7443299293518066,
   "f1": 0.6956772179636905,
+  "confusion_matrix": [
+    [
+      76,
+      28,
+      17
+    ],
+    [
+      16,
+      484,
+      76
+    ],
+    [
+      20,
+      91,
+      162
+    ]
+  ],
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
   "latencyMs": {
-    "classifyPerText": 49.77
+    "classifyPerText": 37.94
   }
 }

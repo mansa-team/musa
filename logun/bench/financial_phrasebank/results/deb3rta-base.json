@@ -3,7 +3,29 @@
   "model": "higopires/DeB3RTa-base",
   "acc": 0.7144330143928528,
   "f1": 0.6345372158851853,
+  "confusion_matrix": [
+    [
+      59,
+      35,
+      27
+    ],
+    [
+      11,
+      495,
+      70
+    ],
+    [
+      27,
+      107,
+      139
+    ]
+  ],
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
   "latencyMs": {
-    "classifyPerText": 30.55
+    "classifyPerText": 24.01
   }
 }
