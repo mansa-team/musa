@@ -119,7 +119,7 @@ try: model.set_adapter(ADAPTER_NAME)
 except Exception: pass
 
 dataset = load_dataset("heitorrosa/financial-sentiment-pt", cache_dir=str(DATASET_CACHE))["train"].to_pandas()
-dataset = dataset[pd.to_numeric(dataset.get("quality", 0), errors="coerce").fillna(0) >= 0.8]
+dataset = dataset[pd.to_numeric(dataset.get("quality", 0), errors="coerce").fillna(0) >= 0.7]
 
 labels = dataset["sentiment"].astype(str).str.strip().str.lower()
 
@@ -139,7 +139,7 @@ training_args = TrainingArguments(
     per_device_train_batch_size=2,
     per_device_eval_batch_size=4,
     gradient_accumulation_steps=16,
-    num_train_epochs=3,
+    num_train_epochs=6,
 
     optim="adamw_torch_fused",
     learning_rate=0.00005, warmup_steps=150,
