@@ -177,10 +177,18 @@ The ETA for the full SFT on the 1660super is measured at arround 5:30h with abou
 
 Considering that the time is ephemeral to run and that we can measure the compute metrics over different quality thresholds to see which one performs better and how much the COMET quality affects the final model outputs.
 
-  0.5 56999
-  0.6	46853
-  0.7	34476
-  0.8	18682
+quality
+0.5    56999
+0.6    46853
+0.7    34476
+0.8    18682
+Name: count, dtype: int64
+
+[sft plots]
+
+the initial evals over a fixed amount of 3 epochs were interesing, the best converging model was the one being trained on quality >= 0.7 rows, heroing at 0.68 F1 in a amount of steps way below other alternatives like >= 0.6 and >= 0.5, showing that the eval performance actually scales as the data quality thresholds grow, with an exception for the >= 0.8 threshold, this run in specific was the worse performing from all 4, even tho starting at a way higher f1 than others, ~0.50 f1 at step 150 (which shows that higher quality data helps initially), it failed to converge its loss and stalled compared to others in the growth of its slope, performing way worse than other models at step 750 than even the >= 0.6 run. This poor performance could be explained by a bias-variance trade-off that makes the model overconfident in its choices, it's more evident when we look at the loss plot, where it stayed consistently above other runs in terms of loss, these results shows the need of a middle man between quality to stabilize the training and make the model not overshoot its responses, ruining its training performance, the larger amount of examples in the >= 0.7 threshold helped the model generalize better, which is the main objective of this training run since the objectives that the model are going to be deployed to cannot have a guaranteed quality threshold as high as the one described by the >= 0.8 split.
+
+Analyzing the potential of the 0.7 run, it was decided that it would be extended in order to yield possible better f1 results over a larger amount of epochs, rather than 3 epochs, the model will run for another 3 epochs, totalling 6 epochs that will be then evaluated to see how much further the model scales and what final checkpoint should be chosen to compose the final logun-base model.
 
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
