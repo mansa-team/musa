@@ -22,6 +22,7 @@ import csv
 import re
 import time
 import torch
+from sklearn.metrics import confusion_matrix as skCM
 from dotenv import load_dotenv
 from transformers import AutoModel, AutoTokenizer
 from flashlib.applications.logistic_regression import LogisticRegression as FlashLogisticRegression
@@ -149,6 +150,10 @@ def macroF1(pred: torch.Tensor, gold: torch.Tensor) -> float:
     return sum(scores) / len(scores)
 
 
+def confusionMatrix(pred, gold, n=3) -> list:
+    return skCM(list(gold), list(pred), labels=list(range(n))).tolist()
+
+
 def scoreEmbeddings(embs: list, labels: list) -> dict:
     feats = torch.tensor(embs, device=DEVICE)
     gold = torch.tensor(labels, device=DEVICE)
@@ -180,6 +185,8 @@ def scoreEmbeddings(embs: list, labels: list) -> dict:
     return {
         "acc": (pred == testLabels).float().mean().item(),
         "f1": macroF1(pred, testLabels),
+        "confusion_matrix": confusionMatrix(pred, testLabels),
+        "labels": ["negative", "neutral", "positive"],
     }
 
 
@@ -208,11 +215,14 @@ def scoreWithGenerate(generate, texts: list, labels: list) -> dict:
     predTensor = torch.tensor(preds, device=DEVICE)
     goldTensor = torch.tensor(labels, device=DEVICE)
     genMs = sum(durs) / max(len(durs), 1)
+    # preds holds substituted values actually scored (unparsed -> 1-gold, or 0 if gold==1)
     return {
         "acc": correct / total if total else 0.0,
         "f1": macroF1(predTensor, goldTensor),
         "unparsed": unparsed,
         "latencyMs": {"genPerText": round(genMs, 2),},
+        "confusion_matrix": confusionMatrix(predTensor, goldTensor),
+        "labels": ["negative", "neutral", "positive"],
     }
 
 

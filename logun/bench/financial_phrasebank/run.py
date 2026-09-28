@@ -20,7 +20,7 @@ URL = f"http://{CONFIG['llm']['host']}:{CONFIG['llm']['port']}"
 MODELS_FILE = os.path.join(LOGUN_DIR, "models.json")
 LAUNCH = os.path.join(LOGUN_DIR, "inference", "launch.py")
 
-SKIP_LLMS = False
+SKIP_LLMS = True
 
 MODELS = [
     ("modernbert-base", "answerdotai/ModernBERT-base", None),
