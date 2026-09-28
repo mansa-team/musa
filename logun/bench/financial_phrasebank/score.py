@@ -151,7 +151,10 @@ def macroF1(pred: torch.Tensor, gold: torch.Tensor) -> float:
 
 
 def confusionMatrix(pred, gold, n=3) -> list:
-    return skCM(list(gold), list(pred), labels=list(range(n))).tolist()
+    def toList(x):
+        t = x if torch.is_tensor(x) else torch.as_tensor(x)
+        return t.detach().to("cpu").tolist()
+    return skCM(toList(gold), toList(pred), labels=list(range(n))).tolist()
 
 
 def scoreEmbeddings(embs: list, labels: list) -> dict:
