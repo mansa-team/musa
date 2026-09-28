@@ -190,6 +190,8 @@ the initial evals over a fixed amount of 3 epochs were interesing, the best conv
 
 Analyzing the potential of the 0.7 run, it was decided that it would be extended in order to yield possible better f1 results over a larger amount of epochs, rather than 3 epochs, the model will run for another 3 epochs, totalling 6 epochs that will be then evaluated to see how much further the model scales and what final checkpoint should be chosen to compose the final logun-base model.
 
+The hero run at 6 epochs was an absolute sucess, acquiring a f1 of 0.7034 from the 0.68 acquired from the run before, the researcher decided to stretch the training by more 2 epochs since the cost would be ephemeral and the acc curve had a similar behavior than previous steps, considering that the loss was decreasing at the time with minimal f1 changes, its supposed that the f1 could have a last spike up, which can and cannot be validaded, so thus, for the sake of curiosity, the model is going to be infered for more 2 epochs
+
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
 https://arxiv.org/abs/2004.10964 (dont stop pretraining, 2020)
