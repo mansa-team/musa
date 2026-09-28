@@ -62,8 +62,7 @@ These will evaluate the ability of the model in
     - NorBERTo-large
     - FinBERT-PT-BR
     - DeB3RTa
-    - Logun Base
-    - Logun Large
+    - Logun-base
 
 with a script running on each run to verify the latency stats from each model
 
@@ -191,6 +190,16 @@ the initial evals over a fixed amount of 3 epochs were interesing, the best conv
 Analyzing the potential of the 0.7 run, it was decided that it would be extended in order to yield possible better f1 results over a larger amount of epochs, rather than 3 epochs, the model will run for another 3 epochs, totalling 6 epochs that will be then evaluated to see how much further the model scales and what final checkpoint should be chosen to compose the final logun-base model.
 
 The hero run at 6 epochs was an absolute sucess, acquiring a f1 of 0.7034 from the 0.68 acquired from the run before, the researcher decided to stretch the training by more 2 epochs since the cost would be ephemeral and the acc curve had a similar behavior than previous steps, considering that the loss was decreasing at the time with minimal f1 changes, its supposed that the f1 could have a last spike up, which can and cannot be validaded, so thus, for the sake of curiosity, the model is going to be infered for more 2 epochs
+
+The 2 epochs extent was a failure, but was a interesing experiment, because the loss kept decreasing while the acc and f1 also plumeted to pre 1500 checkpoint levels, deteriorating the models performance, even so it was a interesing experiment to show that as stated by many other sources, LoRa SFT normally caps at 4 epochs, which was the case here.
+
+[hero run plots]
+
+The final result for the model absolutely outperforms every other model in the Financial Phrasebank PT-BR benchmark, scoring 'acc': 0.8061856031417847, 'f1': 0.783324167003815, for comparasion, FinBERT PT-BR, considered by the previous benchmarks the SOTA of this class of models performed at "acc": 0.7865979671478271, "f1": 0.7510023016121212, a meaningful difference over the logun-base model post sft.
+
+The training of a model based on the NorBERTo-large model was disconsidered after evaluating its initial performance in the Financial Phrasebank PT-BR benchmark, considerably lower than its base peer, so, a further DAPT + SFT would yield basically the same results if so a lower performance, and a smaller model is more favorable to final intent of the model, it being integrate the Mansa Scraper pipeline and Orunmila's tool-set for on-board sentiment evaluations.
+
+The sft represented a jump of almost 0.8 points in f1, being absolutely game-changer to the final model performance on top of the dapt that was performed early on that helped the model bump its performance by ~0.01 f1 points. In later versions of this model, its in the researcher's intent extend the DAPT not only with cvm data corpus but actual news outputs from brazilian outlets, taht are way higher signal from what had been used for dapt, this would help stabilize some possible problems with the current representations and yield a possible better result over sft. This version would probably use some already big and stabilized dataset like https://huggingface.co/datasets/lucasalmda/pt-br-financial-news-dataset, which contains over 56k rows and would be helpful at providing quality data to the stack.
 
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
