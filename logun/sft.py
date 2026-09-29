@@ -111,7 +111,7 @@ lora_config = LoraConfig(
 model = get_peft_model(model, lora_config, adapter_name="sft")
 
 dataset = load_dataset("heitorrosa/financial-sentiment-pt", cache_dir=str(DATASET_CACHE))["train"].to_pandas()
-dataset = dataset[pd.to_numeric(dataset.get("quality", 0), errors="coerce").fillna(0) >= 0.5]
+dataset = dataset[pd.to_numeric(dataset.get("quality", 0), errors="coerce").fillna(0) >= 0.6]
 
 labels = dataset["sentiment"].astype(str).str.strip().str.lower()
 
