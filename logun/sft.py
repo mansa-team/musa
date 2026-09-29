@@ -99,10 +99,6 @@ model = AutoModelForSequenceClassification.from_pretrained(
     label2id={"negative": 0, "neutral": 1, "positive": 2},
 )
 
-if hasattr(model, "peft_config"):
-    if hasattr(model, "merge_and_unload"):
-        model = model.merge_and_unload()
-
 lora_config = LoraConfig(
     r=16,
     lora_alpha=32,
@@ -112,14 +108,10 @@ lora_config = LoraConfig(
     modules_to_save=["classifier"]
 )
 
-ADAPTER_NAME = "sft"
-try: model = get_peft_model(model, lora_config, adapter_name=ADAPTER_NAME)
-except TypeError: model = get_peft_model(model, lora_config); ADAPTER_NAME = "default"
-try: model.set_adapter(ADAPTER_NAME)
-except Exception: pass
+model = get_peft_model(model, lora_config, adapter_name="sft")
 
 dataset = load_dataset("heitorrosa/financial-sentiment-pt", cache_dir=str(DATASET_CACHE))["train"].to_pandas()
-dataset = dataset[pd.to_numeric(dataset.get("quality", 0), errors="coerce").fillna(0) >= 0.7]
+dataset = dataset[pd.to_numeric(dataset.get("quality", 0), errors="coerce").fillna(0) >= 0.5]
 
 labels = dataset["sentiment"].astype(str).str.strip().str.lower()
 
@@ -139,7 +131,7 @@ training_args = TrainingArguments(
     per_device_train_batch_size=2,
     per_device_eval_batch_size=4,
     gradient_accumulation_steps=16,
-    num_train_epochs=8,
+    num_train_epochs=3, # 8
 
     optim="adamw_torch_fused",
     learning_rate=0.00005, warmup_steps=150,
