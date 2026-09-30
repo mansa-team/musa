@@ -23,13 +23,13 @@ LAUNCH = os.path.join(LOGUN_DIR, "inference", "launch.py")
 SKIP_LLMS = True
 
 MODELS = [
-    #("modernbert-base", "answerdotai/ModernBERT-base", None),
-    #("norberto-base", "Itau-Unibanco/NorBERTo-base", None),
-    #("norberto-large", "Itau-Unibanco/NorBERTo-large", None),
+    ("modernbert-base", "answerdotai/ModernBERT-base", None),
+    ("norberto-base", "Itau-Unibanco/NorBERTo-base", None),
+    ("norberto-large", "Itau-Unibanco/NorBERTo-large", None),
     ("logun-base-dapt", "heitorrosa/logun-base@dapt", None),
-    #("logun-base-sft", "heitorrosa/logun-base", None),
-    #("finbert-ptbr", "lucas-leme/FinBERT-PT-BR", None),
-    #("deb3rta-base", "higopires/DeB3RTa-base", {"hidden_size": 384, "intermediate_size": 1536}),
+    ("logun-base-sft", "heitorrosa/logun-base", None),
+    ("finbert-ptbr", "lucas-leme/FinBERT-PT-BR", None),
+    ("deb3rta-base", "higopires/DeB3RTa-base", {"hidden_size": 384, "intermediate_size": 1536}),
 ]
 
 RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
