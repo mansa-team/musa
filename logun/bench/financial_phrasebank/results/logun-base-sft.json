@@ -26,6 +26,6 @@
     "positive"
   ],
   "latencyMs": {
-    "classifyPerText": 52.15
+    "classifyPerText": 42.55
   }
 }

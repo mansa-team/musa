@@ -1,6 +1,5 @@
 .env
 *.log
-*.csv
 
 __pycache__
 .cache
