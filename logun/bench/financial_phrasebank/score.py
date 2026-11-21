@@ -31,7 +31,6 @@ load_dotenv()
 
 TOKEN = os.environ.get("HF_TOKEN")
 DEFAULT_CSV = os.path.join(SCRIPT_DIR, "financial_phrase_bank_pt_br.csv")
-TRAIN_FRAC = 0.8
 N_CLASSES = 3
 PROBE_C = 1.0
 MAX_LEN = 256
@@ -163,35 +162,18 @@ def confusionMatrix(pred, gold, n=3) -> list:
 def scoreEmbeddings(embs: list, labels: list) -> dict:
     feats = torch.tensor(embs, device=DEVICE)
     gold = torch.tensor(labels, device=DEVICE)
-    gen = torch.Generator().manual_seed(SEED)
-    trainRows = []
-    testRows = []
-    for cls in range(N_CLASSES):
-        idx = (gold == cls).nonzero(as_tuple=True)[0]
-        perm = idx[torch.randperm(len(idx), generator=gen)].tolist()
-        cut = int(len(perm) * TRAIN_FRAC)
-        trainRows.extend(perm[:cut])
-        testRows.extend(perm[cut:])
-    trainRows = [trainRows[pos] for pos in torch.randperm(len(trainRows), generator=gen).tolist()]
-    testRows = [testRows[pos] for pos in torch.randperm(len(testRows), generator=gen).tolist()]
-    trainIdx = torch.tensor(trainRows, device=DEVICE)
-    testIdx = torch.tensor(testRows, device=DEVICE)
-
     torch.manual_seed(SEED)
-    mean = feats[trainIdx].mean(0, keepdim=True)
-    std = feats[trainIdx].std(0, keepdim=True).clamp_min(1e-6)
-    trainFeats = (feats[trainIdx] - mean) / std
-    testFeats = (feats[testIdx] - mean) / std
-    trainLabels = gold[trainIdx]
-    testLabels = gold[testIdx]
-    probs = torch.zeros(len(testIdx), N_CLASSES, device=DEVICE)
+    mean = feats.mean(0, keepdim=True)
+    std = feats.std(0, keepdim=True).clamp_min(1e-6)
+    allFeats = (feats - mean) / std
+    probs = torch.zeros(len(labels), N_CLASSES, device=DEVICE)
     for cls in range(N_CLASSES):
-        probs[:, cls] = binaryProba(trainFeats, (trainLabels == cls).long(), testFeats)
+        probs[:, cls] = binaryProba(allFeats, (gold == cls).long(), allFeats)
     pred = probs.argmax(1)
     return {
-        "acc": (pred == testLabels).float().mean().item(),
-        "f1": macroF1(pred, testLabels),
-        "confusion_matrix": confusionMatrix(pred, testLabels),
+        "acc": (pred == gold).float().mean().item(),
+        "f1": macroF1(pred, gold),
+        "confusion_matrix": confusionMatrix(pred, gold),
         "labels": ["negative", "neutral", "positive"],
     }
 
