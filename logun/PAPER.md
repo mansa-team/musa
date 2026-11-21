@@ -1,4 +1,4 @@
-# Logun: Scaling LLM-Assisted Translated Datasets for Portuguese Finance Domain Adaptation and Its Effects on Domain-Adaptive Pretraining Absorption
+# Logun: Scaling LLM-assisted translated datasets for Portuguese Finance Domain Adaptation and its effects on Domain-Adaptive Pretraining absorption during Fine-Tuning
 
 Logun is an approach focusing on the development of finetuning methodologies for Financial Sentiment Analysis in Portuguese based on a pretrained encoding model.
 For this approach, the chosen baseline model by the researcher to start is NorBERTo, based on the ModernBERT architecture and trained on 331 billion tokens composed by a different span of datasets, including the AuroraPT dataset by Instituto de Ciência e Tecnologia Itaú, its currently the most efficient and best Portuguese inclined encoding model avaliable according to benchmarks and it allows for the tuning of 2 different Logun models, a Base (150M parameters) and a Large (395M parameters) version, both focused on different efficiency profiles, which could be helpful depending on the task in which each model is deployed, either through non concurrent classification tasks (eg. via an API) or via mass concurrent classification tasks (eg. a scraper running on different news).
@@ -172,7 +172,7 @@ the translate script works with a pipeline that automatically injects added endp
 
 The translation completed smoothly, creating a final corpus of about ~63k rows after dedups and quality control checks from the pipeline.
 
-The ETA for the full SFT on the 1660super is measured at arround 5:30h with about 8it/s over 2646 steps, meanwhile the 2x T4 cluster on Kaggle is hitting about 4it/s over 1323 steps, on a eta of 1:30h, considering a >=0.50 quality gate, way faster than the 1660super as expected, the jupyter notebooks follows the same approach as the dapt one, allowing hte researcher to use multiple nodes as the quota gets exhausted, which might not be needed in this case since the training time is way below the max threshold.
+It was decided that the first training run would be composed of NorBERTo-base (no DAPT) to compose a final analysis at the end of the impact of DAPT in the final Logun-base model. The ETA for the full SFT on the 1660super is measured at arround 5:30h with about 8it/s over 2646 steps, meanwhile the 2x T4 cluster on Kaggle is hitting about 4it/s over 1323 steps, on a eta of 1:30h, considering a >=0.50 quality gate, way faster than the 1660super as expected, the jupyter notebooks follows the same approach as the dapt one, allowing the researcher to use multiple nodes as the quota gets exhausted, which might not be needed in this case since the training time is way below the max threshold.
 
 Considering that the time is ephemeral to run and that we can measure the compute metrics over different quality thresholds to see which one performs better and how much the COMET quality affects the final model outputs.
 
@@ -183,7 +183,7 @@ quality
 0.8    18682
 Name: count, dtype: int64
 
-[sft plots]
+[norberto sft plots]
 
 the initial evals over a fixed amount of 3 epochs were interesing, the best converging model was the one being trained on quality >= 0.7 rows, heroing at 0.68 F1 in a amount of steps way below other alternatives like >= 0.6 and >= 0.5, showing that the eval performance actually scales as the data quality thresholds grow, with an exception for the >= 0.8 threshold, this run in specific was the worse performing from all 4, even tho starting at a way higher f1 than others, ~0.50 f1 at step 150 (which shows that higher quality data helps initially), it failed to converge its loss and stalled compared to others in the growth of its slope, performing way worse than other models at step 750 than even the >= 0.6 run. This poor performance could be explained by a bias-variance trade-off that makes the model overconfident in its choices, it's more evident when we look at the loss plot, where it stayed consistently above other runs in terms of loss, these results shows the need of a middle man between quality to stabilize the training and make the model not overshoot its responses, ruining its training performance, the larger amount of examples in the >= 0.7 threshold helped the model generalize better, which is the main objective of this training run since the objectives that the model are going to be deployed to cannot have a guaranteed quality threshold as high as the one described by the >= 0.8 split.
 
@@ -193,13 +193,23 @@ The hero run at 6 epochs was an absolute sucess, acquiring a f1 of 0.7034 from t
 
 The 2 epochs extent was a failure, but was a interesing experiment, because the loss kept decreasing while the acc and f1 also plumeted to pre 1500 checkpoint levels, deteriorating the models performance, even so it was a interesing experiment to show that as stated by many other sources, LoRa SFT normally caps at 4 epochs, which was the case here.
 
-[hero run plots]
+[norberto hero run plots]
 
+Afterwards, it was decided to work into the dapt-sft run for the final Logun-base model, the quality gate scaling stayed mostly the same, with the dapt version also sitting arround on >= 0.7 as its confortable threshold with [f1 and acc for it] at the hero epoch, it was also noted by the researcher that the starting base for the f1 scores at an usually higher base and closer together, approximately at 0.45 for the first recorded step with a higher slope [give the actual values for the slope and changes] than the NorBERTo-base run, this helps understand visualize the impact of DAPT in training, which helped the model absorb representations of financial speech much earlier on, allowing it to have a much faster improvement over the same compute as the NorBERTo-base model, yielding in considerable differences at the end that managed it to outperform a much larger model at the same benchmark (NorBERTo-large) that scores [f1 and acc for norberto-large]
+
+[logun sft plots]
+[logun hero run plots]
+
+
+
+"""" (DELETE)
 The final result for the model absolutely outperforms every other model in the Financial Phrasebank PT-BR benchmark, scoring 'acc': 0.8061856031417847, 'f1': 0.783324167003815, for comparasion, FinBERT PT-BR, considered by the previous benchmarks the SOTA of this class of models performed at "acc": 0.7865979671478271, "f1": 0.7510023016121212, a meaningful difference over the logun-base model post sft.
 
 The training of a model based on the NorBERTo-large model was disconsidered after evaluating its initial performance in the Financial Phrasebank PT-BR benchmark, considerably lower than its base peer, so, a further DAPT + SFT would yield basically the same results if so a lower performance, and a smaller model is more favorable to final intent of the model, it being integrate the Mansa Scraper pipeline and Orunmila's tool-set for on-board sentiment evaluations.
 
 The sft represented a jump of almost 0.8 points in f1, being absolutely game-changer to the final model performance on top of the dapt that was performed early on that helped the model bump its performance by ~0.01 f1 points. In later versions of this model, its in the researcher's intent extend the DAPT not only with cvm data corpus but actual news outputs from brazilian outlets, taht are way higher signal from what had been used for dapt, this would help stabilize some possible problems with the current representations and yield a possible better result over sft. This version would probably use some already big and stabilized dataset like https://huggingface.co/datasets/lucasalmda/pt-br-financial-news-dataset, which contains over 56k rows and would be helpful at providing quality data to the stack.
+""""""
+
 
 # dapt
 https://sol.sbc.org.br/index.php/bwaif/article/view/24960 (finbert ptbr, 2023)
