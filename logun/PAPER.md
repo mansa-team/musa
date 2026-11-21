@@ -195,12 +195,15 @@ The 2 epochs extent was a failure, but was a interesing experiment, because the 
 
 [norberto hero run plots]
 
-Afterwards, it was decided to work into the dapt-sft run for the final Logun-base model, the quality gate scaling stayed mostly the same, with the dapt version also sitting arround on >= 0.7 as its confortable threshold with [f1 and acc for it] at the hero epoch, it was also noted by the researcher that the starting base for the f1 scores at an usually higher base and closer together, approximately at 0.45 for the first recorded step with a higher slope [give the actual values for the slope and changes] than the NorBERTo-base run, this helps understand visualize the impact of DAPT in training, which helped the model absorb representations of financial speech much earlier on, allowing it to have a much faster improvement over the same compute as the NorBERTo-base model, yielding in considerable differences at the end that managed it to outperform a much larger model at the same benchmark (NorBERTo-large) that scores [f1 and acc for norberto-large]
+Afterwards, it was decided to work into the dapt-sft run for the final Logun-base model, the quality gate scaling stayed mostly the same, with the dapt version also sitting arround on >= 0.7 as its confortable threshold with 0.7214 at the hero epoch, it was also noted by the researcher that the starting base for the f1 scores at an usually higher base and closer together, approximately at 0.45 for the first recorded step with a higher slope [give the actual values for the slope and changes] than the NorBERTo-base run, this helps understand visualize the impact of DAPT in training, which helped the model absorb representations of financial speech much earlier on, allowing it to have a much faster improvement over the same compute as the NorBERTo-base model, yielding in considerable differences at the end that managed it to outperform a much larger model at the same benchmark (NorBERTo-large) that scores 0.9163
 
 [logun sft plots]
 [logun hero run plots]
 
+These changes in the representation of values and its relation between the scores can be seen in the followings plots, where the scaling of scores at the quality gate has a way bigger impact at the NorBERTo-base scaling plot (seen by the log linear fit) in comparasion to the Logun-base.
 
+[norberto scaling f1]
+[logun scaling f1]
 
 """" (DELETE)
 The final result for the model absolutely outperforms every other model in the Financial Phrasebank PT-BR benchmark, scoring 'acc': 0.8061856031417847, 'f1': 0.783324167003815, for comparasion, FinBERT PT-BR, considered by the previous benchmarks the SOTA of this class of models performed at "acc": 0.7865979671478271, "f1": 0.7510023016121212, a meaningful difference over the logun-base model post sft.

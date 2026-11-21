@@ -1,3 +1,3 @@
 xango paper: A Macroeconomic-Adaptive Multi-Factor Scoring Architecture for Fundamental Equities Evaluation in the Brazilian Stocks Market.
-profit-correlation paper: Isolating Co-Cyclical Earnings Patterns for Fundamental Stock Correlation.
+profit-correlation paper: Isolating Co-Cyclical Earnings Patterns for Fundamental Stock Correlation and Allocation Optimizations.
 portfolio optimizer paper: Synthesizing Dynamic Fundamental Views and Idiosyncratic Co-Cyclicality within an Augmented Black-Litterman Framework for a Fundamentalist Portfolio Allocation.

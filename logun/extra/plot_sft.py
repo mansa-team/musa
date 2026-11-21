@@ -13,6 +13,7 @@ Matplotlib (+numpy) only. Run from anywhere: python logun/extra/plot_sft.py
 """
 import json
 import math
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -31,6 +32,12 @@ GA, W = 16, 20  # grad-accum divisor, rolling-mean window
 OUT = Path(__file__).resolve().parent
 OUT.mkdir(parents=True, exist_ok=True)
 
+# Lineage switch: logun = DAPT base + sft-*; norberto = no-DAPT base + norberto/sft-*
+LINEAGES = {
+    "logun": {"prefix": "", "title": "Logun-base SFT (DAPT)", "outPrefix": ""},
+    "norberto": {"prefix": "norberto/", "title": "NorBERTo-base SFT (no DAPT)", "outPrefix": "norberto-"},
+}
+
 
 def roll(xs, w):
     return [sum(xs[max(0, i - w + 1):i + 1]) / len(xs[max(0, i - w + 1):i + 1])
@@ -44,15 +51,21 @@ def star(ax, x, y, c, size=15):
 
 
 def main():
+    lineage = sys.argv[1] if len(sys.argv) > 1 else "logun"
+    if lineage not in LINEAGES:
+        raise SystemExit(f"unknown lineage {lineage!r}; expected 'logun' or 'norberto'")
+    cfg = LINEAGES[lineage]
+    prefix, title, outPrefix = cfg["prefix"], cfg["title"], cfg["outPrefix"]
+
     allf = list_repo_files(REPO)
     data = {}
     for run in RUNS:  # latest checkpoint per run
         nums = sorted({int(p.split("checkpoint-")[1].split("/")[0])
                        for p in allf
-                       if p.startswith(run + "/checkpoint-") and "/trainer_state.json" in p})
+                       if p.startswith(prefix + run + "/checkpoint-") and "/trainer_state.json" in p})
         for ck in sorted(nums, reverse=True):
             try:
-                p = hf_hub_download(REPO, f"{run}/checkpoint-{ck}/trainer_state.json")
+                p = hf_hub_download(REPO, f"{prefix}{run}/checkpoint-{ck}/trainer_state.json")
                 data[run] = json.load(open(p)).get("log_history", [])
                 print(f"{run}: ckpt-{ck} n_log={len(data[run])}", flush=True)
                 break
@@ -80,17 +93,17 @@ def main():
     for run in RUNS:
         _, evf, _, best, _ = parsed[run]
         xs, ys = zip(*evf)
-        ax.plot(xs, ys, marker="o", markersize=3, label=LABELS[run], color=COLORS[run])
+        ax.plot(xs, ys, marker="o", markersize=3, label=f"{LABELS[run]} (best {best[1]:.4f})", color=COLORS[run])
         star(ax, best[0], best[1], COLORS[run])
     ax.set_xlabel("Optimizer steps")
     ax.set_ylabel("Eval macro-F1")
-    ax.set_title("Eval macro-F1 vs steps (sft q>=0.5/0.6/0.7/0.8)")
+    ax.set_title(title)
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    fig.savefig(OUT / "f1_vs_steps.png", dpi=150)
+    fig.savefig(OUT / (outPrefix + "f1_vs_steps.png"), dpi=150)
     plt.close(fig)
-    print("saved f1_vs_steps.png", flush=True)
+    print(f"saved {outPrefix}f1_vs_steps.png", flush=True)
 
     # (2) rolling-mean-20 train loss/16 + faint raw + eval_loss markers + best stars, LINEAR y
     fig, ax = plt.subplots()
@@ -109,13 +122,13 @@ def main():
             star(ax, be[0], sy, c)
     ax.set_xlabel("Epochs")
     ax.set_ylabel("Loss (train loss_true = logged/16; eval eval_loss)")
-    ax.set_title("Train rolling-mean(20) + raw + eval_loss vs epochs")
+    ax.set_title(title)
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    fig.savefig(OUT / "loss_vs_epochs_smooth.png", dpi=150)
+    fig.savefig(OUT / (outPrefix + "loss_vs_epochs_smooth.png"), dpi=150)
     plt.close(fig)
-    print("saved loss_vs_epochs_smooth.png", flush=True)
+    print(f"saved {outPrefix}loss_vs_epochs_smooth.png", flush=True)
 
     # (3) best eval-F1 vs train rows, log-scale x, log-linear fit on first three
     xs3 = [math.log10(NROWS[r]) for r in RUNS[:3]]
@@ -148,13 +161,13 @@ def main():
     ax.set_xscale("log")
     ax.set_xlabel("Train rows N (log-scale x)")
     ax.set_ylabel("Best eval macro-F1")
-    ax.set_title(f"Scaling: best eval macro-F1 vs train rows (champion: {LABELS[champ]})")
+    ax.set_title(title)
     ax.legend(fontsize=8)
     ax.grid(True, which="both", alpha=0.3)
     fig.tight_layout()
-    fig.savefig(OUT / "scaling_best_f1_vs_N.png", dpi=150)
+    fig.savefig(OUT / (outPrefix + "scaling_best_f1_vs_N.png"), dpi=150)
     plt.close(fig)
-    print("saved scaling_best_f1_vs_N.png", flush=True)
+    print(f"saved {outPrefix}scaling_best_f1_vs_N.png", flush=True)
 
 
 if __name__ == "__main__":

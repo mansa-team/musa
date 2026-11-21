@@ -1,5 +1,6 @@
 """Plot live hero-extension run (Hub heitorrosa/logun-base folder sft/). Read-only, single pass."""
 import json
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -8,7 +9,15 @@ import matplotlib.pyplot as plt
 from huggingface_hub import hf_hub_download, list_repo_files
 
 REPO = "heitorrosa/logun-base"
-RUN = "sft"
+LINEAGES = {
+    "logun": {"run": "sft", "title": "Logun-base SFT (DAPT)", "outPrefix": ""},
+    "norberto": {"run": "norberto/sft", "title": "NorBERTo-base SFT (no DAPT)", "outPrefix": "norberto-"},
+}
+_key = sys.argv[1] if len(sys.argv) > 1 else "logun"
+if _key not in LINEAGES:
+    raise SystemExit(f"unknown lineage {_key!r}; expected 'logun' or 'norberto'")
+LINEAGE = LINEAGES[_key]
+RUN = LINEAGE["run"]
 GA, W = 16, 20
 OUT = Path(__file__).resolve().parent
 OUT.mkdir(parents=True, exist_ok=True)
@@ -30,7 +39,7 @@ def main():
     nums = sorted({int(p.split("checkpoint-")[1].split("/")[0])
                    for p in allf
                    if p.startswith(RUN + "/checkpoint-") and "/trainer_state.json" in p})
-    assert nums, "no checkpoints found under sft/"
+    assert nums, f"no checkpoints found under {RUN}/"
     hist = None
     ck_used = None
     for ck in sorted(nums, reverse=True):  # single read pass, latest first
@@ -38,10 +47,10 @@ def main():
             p = hf_hub_download(REPO, f"{RUN}/checkpoint-{ck}/trainer_state.json")
             hist = json.load(open(p)).get("log_history", [])
             ck_used = ck
-            print(f"sft: ckpt-{ck} n_log={len(hist)}", flush=True)
+            print(f"{RUN}: ckpt-{ck} n_log={len(hist)}", flush=True)
             break
         except Exception as e:
-            print(f"skip sft/{ck}: {type(e).__name__}")
+            print(f"skip {RUN}/{ck}: {type(e).__name__}")
     assert hist, "failed to read hero trainer_state.json"
     tr = sorted([(e["step"], e["loss"] / GA, e.get("epoch")) for e in hist
                  if "loss" in e and "eval_loss" not in e])
@@ -50,21 +59,22 @@ def main():
     evl = sorted([(e.get("epoch"), e.get("eval_loss"), e.get("step")) for e in hist
                   if e.get("eval_loss") is not None and e.get("epoch") is not None])
     best = max(evf, key=lambda t: t[1])
-    print(f"BEST hero(ckpt-{ck_used}): step={best[0]} macroF1={best[1]:.4f} "
+    print(f"BEST hero[{RUN}](ckpt-{ck_used}): step={best[0]} macroF1={best[1]:.4f} "
           f"n_train={len(tr)} n_eval={len(evf)}", flush=True)
     print(f"MIN train_loss_true={min(t[1] for t in tr):.4f} "
           f"min_eval_loss={min(t[1] for t in evl):.4f}" if evl else "", flush=True)
 
     fig, ax = plt.subplots()  # (a) F1 vs steps, linear x
     xs, ys = zip(*evf)
-    ax.plot(xs, ys, marker="o", markersize=3, color="C2")
+    ax.plot(xs, ys, marker="o", markersize=3, color="C2", label=f"best macro-F1 {best[1]:.4f}")
     star(ax, best[0], best[1], "C2")
     ax.set_xlabel("Optimizer steps")
     ax.set_ylabel("Eval macro-F1")
-    ax.set_title(f"Hero sft (q>=0.7 resumed, ckpt-{ck_used}): eval macro-F1 vs steps")
+    ax.set_title(LINEAGE["title"])
     ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8)
     fig.tight_layout()
-    fig.savefig(OUT / "hero_f1_vs_steps.png", dpi=150)
+    fig.savefig(OUT / (LINEAGE["outPrefix"] + "hero_f1_vs_steps.png"), dpi=150)
     plt.close(fig)
     print("saved hero_f1_vs_steps.png", flush=True)
 
@@ -80,11 +90,11 @@ def main():
         star(ax, m[0][0], m[0][1], "C2")
     ax.set_xlabel("Epochs")
     ax.set_ylabel("Loss (train loss_true = logged/16; eval eval_loss)")
-    ax.set_title(f"Hero sft: train rolling-mean({W}) + raw + eval_loss vs epochs")
+    ax.set_title(LINEAGE["title"])
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    fig.savefig(OUT / "hero_loss_vs_epochs_smooth.png", dpi=150)
+    fig.savefig(OUT / (LINEAGE["outPrefix"] + "hero_loss_vs_epochs_smooth.png"), dpi=150)
     plt.close(fig)
     print("saved hero_loss_vs_epochs_smooth.png", flush=True)
 
