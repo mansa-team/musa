@@ -1,23 +1,23 @@
 {
   "slug": "norberto-base",
   "model": "Itau-Unibanco/NorBERTo-base",
-  "acc": 0.7443299293518066,
-  "f1": 0.6956772179636905,
+  "acc": 0.8970072269439697,
+  "f1": 0.8905988974739433,
   "confusion_matrix": [
     [
-      76,
-      28,
-      17
+      545,
+      36,
+      23
     ],
     [
-      16,
-      484,
-      76
+      22,
+      2699,
+      157
     ],
     [
-      20,
-      91,
-      162
+      18,
+      243,
+      1102
     ]
   ],
   "labels": [
@@ -26,6 +26,6 @@
     "positive"
   ],
   "latencyMs": {
-    "classifyPerText": 37.94
+    "classifyPerText": 14.81
   }
 }

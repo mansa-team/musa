@@ -82,6 +82,26 @@ def loadDataset(path: str) -> tuple:
 def loadEncoder(modelId: str, configOverrides: dict | None = None) -> tuple:
     from transformers import AutoConfig
     print(f"encode {modelId} on {DEVICE}")
+    if "|" in modelId:
+        baseId, adapterRepo, adapterSub = modelId.split("|")
+        from peft import PeftConfig, PeftModel
+        from huggingface_hub import hf_hub_download
+        # peft 0.22 joins the subfolder with os.path.join (backslash on Windows), and the adapter was saved
+        # by peft 0.20 with legacy 'model.<layers>...lora_[AB].weight' keys -> load locally and remap keys.
+        PeftConfig.from_pretrained(adapterRepo, subfolder=adapterSub, token=TOKEN)
+        weights = hf_hub_download(adapterRepo, "adapter_model.safetensors", subfolder=adapterSub, token=TOKEN)
+        adapterDir = os.path.dirname(weights)
+        tokenizer = AutoTokenizer.from_pretrained(baseId, token=TOKEN)
+        base = AutoModel.from_pretrained(baseId, token=TOKEN)
+        model = PeftModel.from_pretrained(
+            base,
+            adapterDir,
+            token=TOKEN,
+            key_mapping={r"^model\.(layers\..*\.lora_[AB])\.weight$": r"\1.default.weight"},
+        )
+        model.eval()
+        model.to(DEVICE)
+        return model, tokenizer
     repo, sep, rev = modelId.rpartition("@")
     revKw = {"revision": rev} if sep and "/" not in rev and repo else {}
     hubId = repo if revKw else modelId

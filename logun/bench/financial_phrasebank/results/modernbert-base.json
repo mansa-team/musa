@@ -1,23 +1,23 @@
 {
   "slug": "modernbert-base",
   "model": "answerdotai/ModernBERT-base",
-  "acc": 0.6329897046089172,
-  "f1": 0.5418400762770995,
+  "acc": 0.7948400974273682,
+  "f1": 0.7455979416308725,
   "confusion_matrix": [
     [
-      47,
-      54,
-      20
+      366,
+      174,
+      64
     ],
     [
-      38,
-      440,
-      98
+      43,
+      2613,
+      222
     ],
     [
-      35,
-      111,
-      127
+      49,
+      442,
+      872
     ]
   ],
   "labels": [
@@ -26,6 +26,6 @@
     "positive"
   ],
   "latencyMs": {
-    "classifyPerText": 40.71
+    "classifyPerText": 14.7
   }
 }

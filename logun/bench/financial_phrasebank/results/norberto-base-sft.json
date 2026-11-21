@@ -1,23 +1,23 @@
 {
   "slug": "norberto-base-sft",
-  "model": "Itau-Unibanco/NorBERTo-base",
-  "acc": 0.8061856031417847,
-  "f1": 0.783324167003815,
+  "model": "Itau-Unibanco/NorBERTo-base|heitorrosa/logun-base|norberto/sft",
+  "acc": 0.900928795337677,
+  "f1": 0.897507106449093,
   "confusion_matrix": [
     [
-      93,
+      552,
+      30,
+      22
+    ],
+    [
       19,
-      9
+      2690,
+      169
     ],
     [
-      16,
-      503,
-      57
-    ],
-    [
-      6,
-      81,
-      186
+      12,
+      228,
+      1123
     ]
   ],
   "labels": [
@@ -26,6 +26,6 @@
     "positive"
   ],
   "latencyMs": {
-    "classifyPerText": 39.62
+    "classifyPerText": 23.62
   }
 }

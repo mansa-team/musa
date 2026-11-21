@@ -30,6 +30,7 @@ MODELS = [
     ("logun-base-sft", "heitorrosa/logun-base", None),
     ("finbert-ptbr", "lucas-leme/FinBERT-PT-BR", None),
     ("deb3rta-base", "higopires/DeB3RTa-base", {"hidden_size": 384, "intermediate_size": 1536}),
+    ("norberto-base-sft", "Itau-Unibanco/NorBERTo-base|heitorrosa/logun-base|norberto/sft", None),
 ]
 
 RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")

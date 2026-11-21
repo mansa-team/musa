@@ -1,23 +1,23 @@
 {
   "slug": "deb3rta-base",
   "model": "higopires/DeB3RTa-base",
-  "acc": 0.7144330143928528,
-  "f1": 0.6345372158851853,
+  "acc": 0.7820433974266052,
+  "f1": 0.7210916617160691,
   "confusion_matrix": [
     [
-      59,
-      35,
-      27
+      347,
+      138,
+      119
     ],
     [
-      11,
-      495,
-      70
+      44,
+      2619,
+      215
     ],
     [
-      27,
-      107,
-      139
+      69,
+      471,
+      823
     ]
   ],
   "labels": [
@@ -26,6 +26,6 @@
     "positive"
   ],
   "latencyMs": {
-    "classifyPerText": 24.01
+    "classifyPerText": 8.86
   }
 }

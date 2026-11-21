@@ -1,23 +1,23 @@
 {
   "slug": "logun-base-sft",
   "model": "heitorrosa/logun-base",
-  "acc": 0.8010309338569641,
-  "f1": 0.7757057554317828,
+  "acc": 0.9252838492393494,
+  "f1": 0.9259942141726701,
   "confusion_matrix": [
     [
-      95,
-      20,
-      6
+      581,
+      15,
+      8
     ],
     [
-      20,
-      496,
-      60
+      21,
+      2739,
+      118
     ],
     [
-      11,
-      76,
-      186
+      3,
+      197,
+      1163
     ]
   ],
   "labels": [
@@ -26,6 +26,6 @@
     "positive"
   ],
   "latencyMs": {
-    "classifyPerText": 42.55
+    "classifyPerText": 14.7
   }
 }

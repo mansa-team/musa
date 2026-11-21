@@ -1,23 +1,23 @@
 {
   "slug": "finbert-ptbr",
   "model": "lucas-leme/FinBERT-PT-BR",
-  "acc": 0.7865979671478271,
-  "f1": 0.7510023016121212,
+  "acc": 0.907533586025238,
+  "f1": 0.9022860283265404,
   "confusion_matrix": [
     [
-      83,
-      20,
-      18
+      564,
+      25,
+      15
     ],
     [
-      18,
-      493,
-      65
+      36,
+      2695,
+      147
     ],
     [
-      9,
-      77,
-      187
+      17,
+      208,
+      1138
     ]
   ],
   "labels": [
@@ -26,6 +26,6 @@
     "positive"
   ],
   "latencyMs": {
-    "classifyPerText": 18.43
+    "classifyPerText": 7.28
   }
 }

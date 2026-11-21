@@ -1,23 +1,23 @@
 {
   "slug": "norberto-large",
   "model": "Itau-Unibanco/NorBERTo-large",
-  "acc": 0.723711371421814,
-  "f1": 0.6712858960943248,
+  "acc": 0.9168214797973633,
+  "f1": 0.9163799272005978,
   "confusion_matrix": [
     [
-      69,
-      26,
-      26
+      571,
+      21,
+      12
     ],
     [
-      22,
-      467,
-      87
+      12,
+      2732,
+      134
     ],
     [
-      15,
-      92,
-      166
+      10,
+      214,
+      1139
     ]
   ],
   "labels": [
@@ -26,6 +26,6 @@
     "positive"
   ],
   "latencyMs": {
-    "classifyPerText": 52.07
+    "classifyPerText": 30.19
   }
 }
