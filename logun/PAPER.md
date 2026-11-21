@@ -74,6 +74,8 @@ We select DAPT data with DSIR (Xie et al. 2023): hashed uni+bigram features in 1
 
 [categories split plot from the dsir seelction over the dataset]
 
+[data selection flow for dsir]
+
 "kl_divergence": {
   "pre": 0.0769,
   "post": 0.0534,
@@ -100,6 +102,8 @@ the inference engine will prob run on some dspark/mtp compatible like llama.cpp,
 to evaluate the token throughput performance compared to its accuracy in some benchmark focused on translation performance, its hypothesised that the lfm 8b a1b will heavily outperform qwen 3.5 4b mtp because of its smaller footprint thanks to moe that only activates 1b parameters and the 320m param drafter that it has for dspark speculative decoding and since its trained on 38T tokens and oficially supports portuguse as one of its languages, it will have a good enough performance, comapred to qwen 3.5 that was pretrained on 36T tokens and is meant for a more broader language population.
 
 the 1660super is not good enough for this kind of training because of its emulated fp16 (~0.5tflops) vs fp32 (~10tflops), the lack of some kernels for performance like FlashAttention and my limited RAM bandwidth that could only be solved by upgrading the researchers GPU to some that supports Tensor Cores and proper fp16 or by using a cloud GPU like Google Colab's T4, which is free and will be used via colab-ssh for training alongside with checkpoint abusing for continuous runtime. The 1660 Super managed to make one checkpoint logun-base-2026-08-26-mlm-checkpoint-500 ({'loss': '0.6489', 'grad_norm': '0.08104', 'learning_rate': '4.99e-05', 'epoch': '0.08685'}) but it took about 13hours to train, which would make the project not viable, taking about ~7days just for the dapt on the base model (150m params). I tried running autoresearch with Deepseek v4 Flash 0731 for possible inference improvements on training but it wasnt really effective for the cost $1.00 in about 100M tokens it generated.
+
+[autoresearch plot]
 
 to make use of the colab gpu, i needed to setup a huggingface repo and i had to setup some args to the trainerArguments in my loop. the t4 setup takes about 1:30h to make a single checkpoint, 10x faster than the 1660super setup, the jupyter notebook was designed to allow for quick and easy resume if a t4 insteance hits its quota, allowing me to train the model easily using any jupyter compatible provider (kaggle, colab, etc.)
 
@@ -172,6 +176,8 @@ the translate script works with a pipeline that automatically injects added endp
 
 The translation completed smoothly, creating a final corpus of about ~63k rows after dedups and quality control checks from the pipeline.
 
+[data selection flow for sft]
+
 It was decided that the first training run would be composed of NorBERTo-base (no DAPT) to compose a final analysis at the end of the impact of DAPT in the final Logun-base model. The ETA for the full SFT on the 1660super is measured at arround 5:30h with about 8it/s over 2646 steps, meanwhile the 2x T4 cluster on Kaggle is hitting about 4it/s over 1323 steps, on a eta of 1:30h, considering a >=0.50 quality gate, way faster than the 1660super as expected, the jupyter notebooks follows the same approach as the dapt one, allowing the researcher to use multiple nodes as the quota gets exhausted, which might not be needed in this case since the training time is way below the max threshold.
 
 Considering that the time is ephemeral to run and that we can measure the compute metrics over different quality thresholds to see which one performs better and how much the COMET quality affects the final model outputs.
@@ -185,7 +191,7 @@ Name: count, dtype: int64
 
 [norberto sft plots]
 
-the initial evals over a fixed amount of 3 epochs were interesing, the best converging model was the one being trained on quality >= 0.7 rows, heroing at 0.68 F1 in a amount of steps way below other alternatives like >= 0.6 and >= 0.5, showing that the eval performance actually scales as the data quality thresholds grow, with an exception for the >= 0.8 threshold, this run in specific was the worse performing from all 4, even tho starting at a way higher f1 than others, ~0.50 f1 at step 150 (which shows that higher quality data helps initially), it failed to converge its loss and stalled compared to others in the growth of its slope, performing way worse than other models at step 750 than even the >= 0.6 run. This poor performance could be explained by a bias-variance trade-off that makes the model overconfident in its choices, it's more evident when we look at the loss plot, where it stayed consistently above other runs in terms of loss, these results shows the need of a middle man between quality to stabilize the training and make the model not overshoot its responses, ruining its training performance, the larger amount of examples in the >= 0.7 threshold helped the model generalize better, which is the main objective of this training run since the objectives that the model are going to be deployed to cannot have a guaranteed quality threshold as high as the one described by the >= 0.8 split.
+the initial evals over a fixed amount of 3 epochs were interesting, the best converging model was the one being trained on quality >= 0.7 rows, heroing at 0.6800 f1 at step 1350, a amount of steps way below >= 0.6 at 0.6645 by step 1950 and >= 0.5 at 0.6621 by step 2400. so at least on this first no-dapt run the eval performance actually scales as the data quality grows up to q>=0.7, with the exception of q>=0.8, which was the worse of all 4 even tho it started at ~0.50 f1 by step 150, the highest first eval of any gate, which shows that higher quality data helps initially. it failed to converge its loss and stalled compared to others in the growth of its slope, ending at only 0.6370 f1 by step 600, way below even the q>=0.6 run after that point. this poor performance could be explained by a bias-variance trade-off that makes the model overconfident in its choices, its more evident when we look at the loss plot, where it stayed consistently above other runs in terms of loss, these results shows the need of a middle man between quality to stabilize the training and make the model not overshoot its responses, ruining its training performance, the 34476 rows in the q>=0.7 threshold helped the model generalize better, which is the main objective of this training run since the objectives that the model are going to be deployed to cannot have a guaranteed quality threshold as high as the one described by the q>=0.8 split with 18682 rows.
 
 Analyzing the potential of the 0.7 run, it was decided that it would be extended in order to yield possible better f1 results over a larger amount of epochs, rather than 3 epochs, the model will run for another 3 epochs, totalling 6 epochs that will be then evaluated to see how much further the model scales and what final checkpoint should be chosen to compose the final logun-base model.
 
@@ -195,21 +201,17 @@ The 2 epochs extent was a failure, but was a interesing experiment, because the 
 
 [norberto hero run plots]
 
-Afterwards, it was decided to work into the dapt-sft run for the final Logun-base model, the quality gate scaling stayed mostly the same, with the dapt version also sitting arround on >= 0.7 as its confortable threshold with 0.7214 at the hero epoch, it was also noted by the researcher that the starting base for the f1 scores at an usually higher base and closer together, approximately at 0.45 for the first recorded step with a higher slope [give the actual values for the slope and changes] than the NorBERTo-base run, this helps understand visualize the impact of DAPT in training, which helped the model absorb representations of financial speech much earlier on, allowing it to have a much faster improvement over the same compute as the NorBERTo-base model, yielding in considerable differences at the end that managed it to outperform a much larger model at the same benchmark (NorBERTo-large) that scores 0.9163
+afterwards, it was decided to work into the dapt-sft run for the final Logun-base model, the quality gate scaling stayed mostly the same, with the dapt version also sitting arround on >= 0.7 as its confortable threshold, 0.6851 f1 at step 1350 against the 0.6800 from the no-dapt run at the same step. the researcher noted that the f1 at the first recorded step was higher, 0.4666 against 0.4104 in the q>=0.7 runs and 0.4514 against 0.4104 in the hero runs, so dapt clearly starts from a better place, but after checking the trainer logs the slope was actually lower, not higher. over the first 600 steps the gain was 0.0395 f1 per 100 steps for dapt against 0.0540 for the no-dapt run at q>=0.7, and 0.0434 against 0.0540 in the hero runs. area under the learning curve was 0.5732 against 0.5779 at q>=0.7, and 0.6616 against 0.6498 in the hero runs. so the earlier idea of dapt giving a much faster improvement over the same compute was wrong, what it gives is a higher starting point and a higher ceiling. the hero epoch still reached 0.7214 against 0.7034 from the no-dapt run, both at step 2400, and the difference shows up at the high f1 end: steps to 0.65/0.68/0.70/0.72 were 900/1200/2100/2400 for dapt against 450/1650/2400/never for no-dapt, so only the dapt run clears 0.72. that is the mechanism behind the final dapt+sft model beating a much larger model at the same benchmark, NorBERTo-large at 0.9164 f1.
 
 [logun sft plots]
 [logun hero run plots]
 
-These changes in the representation of values and its relation between the scores can be seen in the followings plots, where the scaling of scores at the quality gate has a way bigger impact at the NorBERTo-base scaling plot (seen by the log linear fit) in comparasion to the Logun-base.
+These changes in the representation of values and its relation between the scores can be seen in the followings plots, where the scaling of scores at the quality gate has a way bigger impact at the NorBERTo-base scaling plot (seen by the log linear fit) in comparasion to the Logun-base. looking at the actual numbers, dapt minus no-dapt best f1 is +0.0191 at q0.5, -0.0004 at q0.6, +0.0051 at q0.7 and -0.0211 at q0.8, so the gate effect is not uniform and the no-dapt run was actually stronger at q0.6 and q0.8. both lineages peak at q0.7, which is why q>=0.7 is the recipe that goes forward to the large run and why a new four-way gate sweep is not worth it unless we are making a separate claim about gate transfer.
 
 [norberto scaling f1]
 [logun scaling f1]
 
 """" (DELETE)
-The final result for the model absolutely outperforms every other model in the Financial Phrasebank PT-BR benchmark, scoring 'acc': 0.8061856031417847, 'f1': 0.783324167003815, for comparasion, FinBERT PT-BR, considered by the previous benchmarks the SOTA of this class of models performed at "acc": 0.7865979671478271, "f1": 0.7510023016121212, a meaningful difference over the logun-base model post sft.
-
-The training of a model based on the NorBERTo-large model was disconsidered after evaluating its initial performance in the Financial Phrasebank PT-BR benchmark, considerably lower than its base peer, so, a further DAPT + SFT would yield basically the same results if so a lower performance, and a smaller model is more favorable to final intent of the model, it being integrate the Mansa Scraper pipeline and Orunmila's tool-set for on-board sentiment evaluations.
-
 The sft represented a jump of almost 0.8 points in f1, being absolutely game-changer to the final model performance on top of the dapt that was performed early on that helped the model bump its performance by ~0.01 f1 points. In later versions of this model, its in the researcher's intent extend the DAPT not only with cvm data corpus but actual news outputs from brazilian outlets, taht are way higher signal from what had been used for dapt, this would help stabilize some possible problems with the current representations and yield a possible better result over sft. This version would probably use some already big and stabilized dataset like https://huggingface.co/datasets/lucasalmda/pt-br-financial-news-dataset, which contains over 56k rows and would be helpful at providing quality data to the stack.
 """"""
 
@@ -260,13 +262,13 @@ https://arxiv.org/abs/2001.08361 (Scaling Laws, 2020)
 
 todo:
 - [ ] include the cvm scraper specs
-- [ ] include graphs for eda explaining the data composition and processes from both dapt and sft (like this one https://pbs.twimg.com/media/HS7RMmIbkAAOmCL?format=jpg&name=small)
 - [ ] replace "we are going to use x" to "Hypothesis -> Experiment -> Measurement -> Expected interpretation"
 - [ ] include laya multilingual benchmarks for the financial_phrasebank sample
 
 specs:
 1660super 6gb 360gb/s
-4x8gb 25gb/s
+4x8gb 25gb/s 2666 v3 @ 3500 all core
+1x32 40gb/s 7500f @ +200 -20
 
 cloud:
 t4 16gb 336gb/s
