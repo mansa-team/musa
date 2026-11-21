@@ -211,6 +211,8 @@ These changes in the representation of values and its relation between the score
 [norberto scaling f1]
 [logun scaling f1]
 
+(large model training arc)
+
 """" (DELETE)
 The sft represented a jump of almost 0.8 points in f1, being absolutely game-changer to the final model performance on top of the dapt that was performed early on that helped the model bump its performance by ~0.01 f1 points. In later versions of this model, its in the researcher's intent extend the DAPT not only with cvm data corpus but actual news outputs from brazilian outlets, taht are way higher signal from what had been used for dapt, this would help stabilize some possible problems with the current representations and yield a possible better result over sft. This version would probably use some already big and stabilized dataset like https://huggingface.co/datasets/lucasalmda/pt-br-financial-news-dataset, which contains over 56k rows and would be helpful at providing quality data to the stack.
 """"""
