@@ -71,18 +71,18 @@ resume = None
 if args.resume:
     if args.resume is True:
         files = list_repo_files(repository_name, token=HF_TOKEN)
-        nums = [int(p.split("/")[1].split("-")[1]) for p in files if p.startswith("sft-large/checkpoint-") and len(p.split("/")) > 2]
+        nums = [int(p.split("/")[1].split("-")[1]) for p in files if p.startswith("sft/checkpoint-") and len(p.split("/")) > 2]
         checkpoint = f"checkpoint-{max(nums)}" if nums else None
     else:
         checkpoint = str(args.resume).split("/")[-1]
 
-    target = Path(CACHE / checkpoint_name) / "sft-large" / checkpoint if checkpoint else None
+    target = Path(CACHE / checkpoint_name) / "sft" / checkpoint if checkpoint else None
 
     if checkpoint and not (target / "trainer_state.json").exists():
         snapshot_download(
             repo_id=repository_name,
             revision="main",
-            allow_patterns=[f"sft-large/{checkpoint}/*"],
+            allow_patterns=[f"sft/{checkpoint}/*"],
             local_dir=Path(CACHE / checkpoint_name),
             token=HF_TOKEN,
         )
@@ -127,7 +127,7 @@ tokenized = dataset.map(
 )
 
 training_args = TrainingArguments(
-    output_dir=str(CACHE / checkpoint_name / "sft-large"),
+    output_dir=str(CACHE / checkpoint_name / "sft"),
 
     per_device_train_batch_size=2,
     per_device_eval_batch_size=4,
@@ -153,13 +153,13 @@ training_args = TrainingArguments(
 )
 
 collator = DataCollatorWithPadding(tokenizer)
-trainer = Trainer(model=model, args=training_args, train_dataset=tokenized["train"], eval_dataset=tokenized["test"], data_collator=collator, compute_metrics=compute_metrics, callbacks=[PushPhaseCallback("sft-large", repository_name), TrueTrainLossCallback()])
+trainer = Trainer(model=model, args=training_args, train_dataset=tokenized["train"], eval_dataset=tokenized["test"], data_collator=collator, compute_metrics=compute_metrics, callbacks=[PushPhaseCallback("sft", repository_name), TrueTrainLossCallback()])
 
 trainer.train(resume_from_checkpoint=resume)
-trainer.save_model(str(CACHE / checkpoint_name / "sft-large"))
+trainer.save_model(str(CACHE / checkpoint_name / "sft"))
 upload_folder(
     repo_id=repository_name,
-    folder_path=str(CACHE / checkpoint_name / "sft-large"),
-    path_in_repo="sft-large",
+    folder_path=str(CACHE / checkpoint_name / "sft"),
+    path_in_repo="sft",
     token=HF_TOKEN,
 )

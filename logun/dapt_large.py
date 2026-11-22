@@ -52,18 +52,18 @@ resume = None
 if args.resume is not None:
     if args.resume is True:
         files = list_repo_files(repository_name, token=HF_TOKEN)
-        nums = [int(p.split("/")[1].split("-")[1]) for p in files if p.startswith("dapt-large/checkpoint-") and len(p.split("/")) > 2]
+        nums = [int(p.split("/")[1].split("-")[1]) for p in files if p.startswith("dapt/checkpoint-") and len(p.split("/")) > 2]
         checkpoint = f"checkpoint-{max(nums)}" if nums else None
     else:
         checkpoint = str(args.resume).split("/")[-1]
 
-    target = Path(CACHE / checkpoint_name) / "dapt-large" / checkpoint if checkpoint else None
+    target = Path(CACHE / checkpoint_name) / "dapt" / checkpoint if checkpoint else None
 
     if checkpoint and not (target / "trainer_state.json").exists():
         snapshot_download(
             repo_id=repository_name,
             revision="main",
-            allow_patterns=[f"dapt-large/{checkpoint}/*"],
+            allow_patterns=[f"dapt/{checkpoint}/*"],
             local_dir=Path(CACHE / checkpoint_name),
             token=HF_TOKEN,
         )
@@ -89,7 +89,7 @@ tokenized_dataset = dataset.map(
 )
 
 training_args = TrainingArguments(
-    output_dir=str(CACHE / checkpoint_name / "dapt-large"),
+    output_dir=str(CACHE / checkpoint_name / "dapt"),
 
     per_device_train_batch_size=2,
     per_device_eval_batch_size=4,
@@ -114,13 +114,13 @@ training_args = TrainingArguments(
 )
 
 collator = DataCollatorForLanguageModeling(tokenizer, mlm=True, mlm_probability=0.15)
-trainer = Trainer(model=model, args=training_args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator, callbacks=[PushPhaseCallback("dapt-large", repository_name)])
+trainer = Trainer(model=model, args=training_args, train_dataset=tokenized_dataset["train"], eval_dataset=tokenized_dataset["test"], data_collator=collator, callbacks=[PushPhaseCallback("dapt", repository_name)])
 
 trainer.train(resume_from_checkpoint=resume)
-trainer.save_model(str(CACHE / checkpoint_name / "dapt-large"))
+trainer.save_model(str(CACHE / checkpoint_name / "dapt"))
 upload_folder(
     repo_id=repository_name,
-    folder_path=str(CACHE / checkpoint_name / "dapt-large"),
-    path_in_repo="dapt-large",
+    folder_path=str(CACHE / checkpoint_name / "dapt"),
+    path_in_repo="dapt",
     token=HF_TOKEN,
 )
