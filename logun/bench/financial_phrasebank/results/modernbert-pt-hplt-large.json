@@ -1,0 +1,31 @@
+{
+  "slug": "modernbert-pt-hplt-large",
+  "model": "eliasjacob/ModernBERT-large-portuguese",
+  "acc": 0.9269350171089172,
+  "f1": 0.9280233474919214,
+  "confusion_matrix": [
+    [
+      582,
+      11,
+      11
+    ],
+    [
+      11,
+      2748,
+      119
+    ],
+    [
+      7,
+      195,
+      1161
+    ]
+  ],
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
+  "latencyMs": {
+    "classifyPerText": 42.41
+  }
+}
